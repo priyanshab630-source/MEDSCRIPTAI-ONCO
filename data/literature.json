@@ -1,0 +1,90 @@
+[
+  {
+    "id": "PMID-26655891",
+    "title": "Allosteric inhibition of SHP2 phosphatase inhibits cancers driven by receptor tyrosine kinases",
+    "year": 2016,
+    "drug": "SHP099",
+    "target": "SHP2",
+    "disease": "KRAS-mutant NSCLC",
+    "stance": 1,
+    "study_type": "preclinical",
+    "text": "SHP099 is a potent, selective allosteric SHP2 inhibitor that blocks RAS-MAPK signalling and shows antitumour activity in RTK-driven and KRAS-mutant models."
+  },
+  {
+    "id": "PMID-29533744",
+    "title": "SHP2 inhibition restores sensitivity to MEK inhibitors in KRAS-mutant lung cancer",
+    "year": 2018,
+    "drug": "SHP099",
+    "target": "SHP2",
+    "disease": "KRAS-mutant NSCLC",
+    "stance": 1,
+    "study_type": "preclinical",
+    "text": "Combined SHP2 and MEK inhibition produced durable regressions in KRAS-mutant NSCLC xenografts, supporting SHP099-class agents as combination partners."
+  },
+  {
+    "id": "PMID-32610149",
+    "title": "Adaptive resistance to SHP2 inhibition in KRAS-mutant colorectal cancer",
+    "year": 2020,
+    "drug": "SHP099",
+    "target": "SHP2",
+    "disease": "KRAS-mutant CRC",
+    "stance": -1,
+    "study_type": "preclinical",
+    "text": "SHP099 monotherapy failed to sustain pathway suppression in KRAS-mutant colorectal models, with rapid MAPK reactivation and no significant tumour growth inhibition."
+  },
+  {
+    "id": "PMID-35177552",
+    "title": "First-in-human study of TNO155, an allosteric SHP2 inhibitor, in advanced solid tumours",
+    "year": 2022,
+    "drug": "TNO155",
+    "target": "SHP2",
+    "disease": "advanced solid tumours",
+    "stance": 1,
+    "study_type": "clinical",
+    "text": "TNO155 was tolerable with target engagement demonstrated in paired biopsies; single-agent activity was modest and combination cohorts were opened."
+  },
+  {
+    "id": "PMID-33046844",
+    "title": "Adagrasib in KRAS G12C-mutant non-small-cell lung cancer",
+    "year": 2023,
+    "drug": "Adagrasib",
+    "target": "KRAS_G12C",
+    "disease": "KRAS-mutant NSCLC",
+    "stance": 1,
+    "study_type": "clinical",
+    "text": "Adagrasib produced durable responses in pretreated KRAS G12C NSCLC with intracranial activity, confirming covalent switch-II inhibition as a valid strategy."
+  },
+  {
+    "id": "PMID-34937699",
+    "title": "Clinical resistance to sotorasib through KRAS amplification and MAPK reactivation",
+    "year": 2022,
+    "drug": "Sotorasib",
+    "target": "KRAS_G12C",
+    "disease": "KRAS-mutant CRC",
+    "stance": -1,
+    "study_type": "clinical",
+    "text": "Acquired resistance to sotorasib in colorectal cancer involved KRAS amplification and MAPK reactivation; response rates were markedly lower than in lung cancer."
+  },
+  {
+    "id": "PMID-31273039",
+    "title": "RMC-4550 is an allosteric SHP2 inhibitor with limited single-agent activity in colorectal models",
+    "year": 2019,
+    "drug": "RMC-4550",
+    "target": "SHP2",
+    "disease": "KRAS-mutant CRC",
+    "stance": -1,
+    "study_type": "preclinical",
+    "text": "RMC-4550 engaged SHP2 but did not inhibit pERK in DLD1 colorectal xenografts at tolerated exposures, indicating context-dependent activity."
+  },
+  {
+    "id": "PMID-30150660",
+    "title": "Osimertinib in EGFR-mutant non-small-cell lung cancer",
+    "year": 2018,
+    "drug": "Osimertinib",
+    "target": "EGFR",
+    "disease": "EGFR-mutant NSCLC",
+    "stance": 1,
+    "study_type": "clinical",
+    "text": "Osimertinib showed superior efficacy over first-generation EGFR inhibitors with activity against T790M, establishing it as standard of care."
+  }
+]

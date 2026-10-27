@@ -1,0 +1,17 @@
+[
+  {"subject": "SHP099", "relation": "INHIBITS", "object": "SHP2", "polarity": 1, "source": "ChemMedChem 2016"},
+  {"subject": "TNO155", "relation": "INHIBITS", "object": "SHP2", "polarity": 1, "source": "J Med Chem 2019"},
+  {"subject": "RMC-4550", "relation": "INHIBITS", "object": "SHP2", "polarity": 1, "source": "AACR 2019"},
+  {"subject": "RMC-4550", "relation": "SHOWED_LIMITED_ACTIVITY_IN", "object": "DLD1_COLON", "polarity": -1, "source": "AACR 2019"},
+  {"subject": "SHP2", "relation": "ACTIVATES", "object": "RAS_MAPK_PATHWAY", "polarity": 1, "source": "Nat Rev Cancer 2018"},
+  {"subject": "SHP2", "relation": "ASSOCIATED_WITH", "object": "KRAS_MUTANT_NSCLC", "polarity": 1, "source": "Cancer Discov 2019"},
+  {"subject": "SHP2", "relation": "ASSOCIATED_WITH", "object": "KRAS_MUTANT_CRC", "polarity": 1, "source": "Cancer Discov 2020"},
+  {"subject": "SHP099", "relation": "SHOWED_RESISTANCE_IN", "object": "KRAS_MUTANT_CRC", "polarity": -1, "source": "Cell Rep 2020"},
+  {"subject": "Adagrasib", "relation": "INHIBITS", "object": "KRAS_G12C", "polarity": 1, "source": "Cancer Cell 2020"},
+  {"subject": "Sotorasib", "relation": "INHIBITS", "object": "KRAS_G12C", "polarity": 1, "source": "Nature 2020"},
+  {"subject": "Sotorasib", "relation": "SHOWED_RESISTANCE_IN", "object": "KRAS_MUTANT_CRC", "polarity": -1, "source": "NEJM 2021"},
+  {"subject": "KRAS_G12C", "relation": "ACTIVATES", "object": "RAS_MAPK_PATHWAY", "polarity": 1, "source": "Nature 2020"},
+  {"subject": "Osimertinib", "relation": "INHIBITS", "object": "EGFR", "polarity": 1, "source": "J Med Chem 2014"},
+  {"subject": "EGFR", "relation": "ACTIVATES", "object": "RAS_MAPK_PATHWAY", "polarity": 1, "source": "Cell 2017"},
+  {"subject": "RMC-4550", "relation": "FAILED_IN", "object": "PHASE1_SOLID_TUMOUR", "polarity": -1, "source": "ClinicalTrials 2021"}
+]

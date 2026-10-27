@@ -1,0 +1,9 @@
+[
+  {"drug": "SHP099", "target": "SHP2", "assay_type": "IC50 (biochemical)", "value": 0.071, "unit": "uM", "cell_line": "in vitro enzyme", "polarity": 1, "source": "ChemMedChem 2016"},
+  {"drug": "SHP099", "target": "SHP2", "assay_type": "pERK IC50", "value": 0.18, "unit": "uM", "cell_line": "KYSE-520", "polarity": 1, "source": "Nat Chem Biol 2016"},
+  {"drug": "TNO155", "target": "SHP2", "assay_type": "IC50 (biochemical)", "value": 0.011, "unit": "uM", "cell_line": "in vitro enzyme", "polarity": 1, "source": "J Med Chem 2019"},
+  {"drug": "RMC-4550", "target": "SHP2", "assay_type": "pERK IC50", "value": 6.4, "unit": "uM", "cell_line": "DLD1", "polarity": -1, "source": "AACR 2019"},
+  {"drug": "Sotorasib", "target": "KRAS_G12C", "assay_type": "IC50 (biochemical)", "value": 0.032, "unit": "uM", "cell_line": "in vitro enzyme", "polarity": 1, "source": "Nature 2020"},
+  {"drug": "Adagrasib", "target": "KRAS_G12C", "assay_type": "IC50 (biochemical)", "value": 0.014, "unit": "uM", "cell_line": "in vitro enzyme", "polarity": 1, "source": "Cancer Cell 2020"},
+  {"drug": "Osimertinib", "target": "EGFR", "assay_type": "IC50 (biochemical)", "value": 0.012, "unit": "uM", "cell_line": "in vitro enzyme", "polarity": 1, "source": "J Med Chem 2014"}
+]

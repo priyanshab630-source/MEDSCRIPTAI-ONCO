@@ -1,0 +1,32 @@
+{
+  "SHP099": {
+    "target": "SHP2",
+    "smiles": "Nc1nc(N2CCNCC2)c2cc(Cl)ccc2n1",
+    "note": "Illustrative analogue SMILES for the demo. Replace with the ChEMBL canonical SMILES before any real use."
+  },
+  "TNO155": {
+    "target": "SHP2",
+    "smiles": "CC(C)(C)c1cc(Nc2ncc(C#N)c(Nc3ccc(CN4CCOCC4)cc3)n2)cc(Cl)c1",
+    "note": "Illustrative analogue SMILES for the demo."
+  },
+  "RMC-4550": {
+    "target": "SHP2",
+    "smiles": "Cc1cc(Nc2nccc(Nc3ccc(CN4CCN(C)CC4)cc3)n2)cc(C)c1",
+    "note": "Illustrative analogue SMILES for the demo."
+  },
+  "Sotorasib": {
+    "target": "KRAS_G12C",
+    "smiles": "C=CC(=O)N1CCN(c2nc3c(c(Nc4c(F)ccc5c4n(C)c(=O)n5C)n3)nc2C)CC1",
+    "note": "Illustrative analogue SMILES for the demo."
+  },
+  "Adagrasib": {
+    "target": "KRAS_G12C",
+    "smiles": "C=CC(=O)N1CCN(c2ccc3c(c2)nc(Nc2ccc4c(c2F)CCN4C(=O)C=C)n3)CC1",
+    "note": "Illustrative analogue SMILES for the demo."
+  },
+  "Osimertinib": {
+    "target": "EGFR",
+    "smiles": "CN1CCN(CC1)c1cc(Nc2ncnc3cc(OC)c(OC)cc23)c(F)cc1NC(=O)C=C",
+    "note": "Illustrative analogue SMILES for the demo."
+  }
+}

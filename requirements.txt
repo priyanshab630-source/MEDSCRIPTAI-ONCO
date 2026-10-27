@@ -1,0 +1,17 @@
+# Core prototype - these are enough to run the CLI and the tests.
+numpy>=1.26
+requests>=2.31
+
+# Web layer (optional: only needed for `uvicorn api.app:app`)
+fastapi>=0.110
+uvicorn>=0.27
+
+# Development
+pytest>=8.0
+httpx2>=0.1            # starlette's TestClient dependency (newer FastAPI)
+
+# Optional extras, uncomment as you need them:
+# neo4j>=5.20          # real knowledge graph instead of the JSON snapshot
+# rdkit>=2023.9.5      # production descriptors instead of src/tools/qsar.py
+# torch>=2.2           # trained GNN checkpoint instead of the numpy prototype
+# langgraph>=0.2       # real orchestration engine instead of src/core/graph.py

@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>MEDSCRIPTAI-ONCO · hypothesis validator</title>
+  <style>
+    :root {
+      --bg: #0b1220; --panel: #131c2e; --line: #24314a; --text: #e6ecf5;
+      --muted: #93a2bd; --accent: #4da3ff;
+      --ok: #35c98a; --bad: #ff6b6b; --warn: #f0b429; --grey: #8b9bb5;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; background: var(--bg); color: var(--text);
+      font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+      line-height: 1.5;
+    }
+    header { padding: 28px 32px 12px; border-bottom: 1px solid var(--line); }
+    h1 { margin: 0 0 4px; font-size: 22px; letter-spacing: -0.01em; }
+    header p { margin: 0; color: var(--muted); font-size: 14px; }
+    main { display: grid; grid-template-columns: 340px 1fr; gap: 24px; padding: 24px 32px 60px; }
+    @media (max-width: 900px) { main { grid-template-columns: 1fr; } }
+    form, .card {
+      background: var(--panel); border: 1px solid var(--line);
+      border-radius: 12px; padding: 18px;
+    }
+    label { display: block; font-size: 12px; text-transform: uppercase;
+            letter-spacing: 0.08em; color: var(--muted); margin: 14px 0 6px; }
+    input {
+      width: 100%; padding: 10px 12px; border-radius: 8px;
+      border: 1px solid var(--line); background: #0e1727; color: var(--text);
+      font-size: 14px;
+    }
+    button {
+      margin-top: 18px; width: 100%; padding: 11px 14px; border: 0;
+      border-radius: 8px; background: var(--accent); color: #04121f;
+      font-weight: 600; font-size: 14px; cursor: pointer;
+    }
+    button:disabled { opacity: 0.6; cursor: progress; }
+    .hint { color: var(--muted); font-size: 12px; margin-top: 10px; }
+    .verdict { display: flex; align-items: baseline; gap: 12px; }
+    .badge {
+      font-size: 13px; font-weight: 700; letter-spacing: 0.06em;
+      padding: 5px 12px; border-radius: 999px; text-transform: uppercase;
+    }
+    .SUPPORTED { background: rgba(53,201,138,0.16); color: var(--ok); }
+    .CONTRADICTED { background: rgba(255,107,107,0.16); color: var(--bad); }
+    .UNCERTAIN { background: rgba(240,180,41,0.16); color: var(--warn); }
+    .ABSTAIN { background: rgba(139,155,181,0.16); color: var(--grey); }
+    h2 { font-size: 13px; text-transform: uppercase; letter-spacing: 0.09em;
+         color: var(--muted); margin: 24px 0 10px; }
+    .bar-row { display: grid; grid-template-columns: 180px 1fr 48px; gap: 10px;
+               align-items: center; font-size: 13px; margin-bottom: 6px; }
+    .track { height: 8px; background: #0e1727; border-radius: 999px; overflow: hidden; }
+    .fill { height: 100%; background: var(--accent); }
+    ul { margin: 0; padding-left: 18px; font-size: 13.5px; }
+    li { margin-bottom: 6px; }
+    .tag { font-size: 11px; padding: 1px 7px; border-radius: 5px;
+           border: 1px solid var(--line); color: var(--muted); margin-right: 6px; }
+    .pos { color: var(--ok); } .neg { color: var(--bad); } .neu { color: var(--grey); }
+    code { font-size: 12px; color: var(--muted); }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>MEDSCRIPTAI-ONCO</h1>
+    <p>Contradiction-aware validation of a drug–target hypothesis. Six agents, one evidence trail.</p>
+  </header>
+
+  <main>
+    <form id="form">
+      <label for="drug">Compound</label>
+      <input id="drug" value="SHP099" required />
+      <label for="target">Target</label>
+      <input id="target" value="SHP2" required />
+      <label for="disease">Disease context</label>
+      <input id="disease" value="KRAS-mutant NSCLC" />
+      <label for="smiles">SMILES (optional)</label>
+      <input id="smiles" placeholder="leave blank to use the seed table" />
+      <button id="go" type="submit">Validate hypothesis</button>
+      <p class="hint">Try RMC-4550 / SHP2 to see a contradicted call, or any unknown
+        compound to see an abstention.</p>
+    </form>
+
+    <section id="result" class="card">
+      <p class="hint">Results appear here. The framework answers Supported,
+        Contradicted, Uncertain or Abstain — never a bare confidence number.</p>
+    </section>
+  </main>
+
+<script>
+const result = document.getElementById("result");
+const form = document.getElementById("form");
+const go = document.getElementById("go");
+
+function bar(name, value) {
+  const pct = Math.round(value * 100);
+  return `<div class="bar-row"><span>${name.replaceAll("_", " ")}</span>
+    <span class="track"><span class="fill" style="width:${pct}%"></span></span>
+    <span>${value.toFixed(2)}</span></div>`;
+}
+
+form.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  go.disabled = true;
+  result.innerHTML = "<p class='hint'>Running the agent pipeline…</p>";
+
+  const body = {
+    drug: document.getElementById("drug").value.trim(),
+    target: document.getElementById("target").value.trim(),
+    disease: document.getElementById("disease").value.trim(),
+    smiles: document.getElementById("smiles").value.trim(),
+  };
+
+  try {
+    const response = await fetch("/analyze", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.detail || "request failed");
+
+    const evidence = data.evidence.map((item) => {
+      const cls = item.polarity > 0 ? "pos" : item.polarity < 0 ? "neg" : "neu";
+      const sign = item.polarity > 0 ? "supports" : item.polarity < 0 ? "contradicts" : "neutral";
+      return `<li><span class="tag">${item.source}</span>
+        <span class="${cls}">${sign}</span> · ${item.claim.slice(0, 190)}</li>`;
+    }).join("") || "<li>No evidence retrieved.</li>";
+
+    const computations = data.computations.map((item) =>
+      `<li><span class="tag">${item.name}</span> score ${item.score.toFixed(2)} · ${item.detail}</li>`
+    ).join("") || "<li>No in-silico signals (no SMILES).</li>";
+
+    const trace = data.trace.map((step) =>
+      `<li><span class="tag">${step.agent}</span>${step.message}</li>`).join("");
+
+    const abstain = data.abstain_reasons.length
+      ? `<h2>Abstain criteria triggered</h2><ul>${data.abstain_reasons.map(r => `<li>${r}</li>`).join("")}</ul>`
+      : "";
+
+    result.innerHTML = `
+      <div class="verdict">
+        <span class="badge ${data.verdict}">${data.verdict}</span>
+        <span class="hint">overall uncertainty ${data.overall_uncertainty.toFixed(2)} ·
+          dominant: ${data.dominant_dimension.replaceAll("_", " ")}</span>
+      </div>
+      <p>${data.rationale}</p>
+      <h2>Uncertainty vector</h2>
+      ${Object.entries(data.uncertainty).map(([k, v]) => bar(k, v)).join("")}
+      <h2>Computational signals</h2><ul>${computations}</ul>
+      <h2>Evidence (${data.evidence.length})</h2><ul>${evidence}</ul>
+      ${abstain}
+      <h2>Agent trace</h2><ul>${trace}</ul>`;
+  } catch (error) {
+    result.innerHTML = `<p class="neg">${error.message}</p>`;
+  } finally {
+    go.disabled = false;
+  }
+});
+</script>
+</body>
+</html>

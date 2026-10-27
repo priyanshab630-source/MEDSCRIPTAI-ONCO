@@ -1,0 +1,44 @@
+{
+  "SHP2": {
+    "gene": "PTPN11",
+    "pocket": {
+      "hydrophobicity": 0.62,
+      "polarity": 0.35,
+      "reference_mw": 330
+    },
+    "mw": [300, 500],
+    "logp": [1.5, 5.8],
+    "hbd": [0, 3],
+    "hba": [3, 8],
+    "tpsa": [55, 110],
+    "notes": "Allosteric tunnel pocket at the C-SH2 / phosphatase domain interface."
+  },
+  "KRAS_G12C": {
+    "gene": "KRAS",
+    "pocket": {
+      "hydrophobicity": 0.48,
+      "polarity": 0.45,
+      "reference_mw": 460
+    },
+    "mw": [400, 520],
+    "logp": [2.0, 5.2],
+    "hbd": [0, 2],
+    "hba": [4, 8],
+    "tpsa": [70, 140],
+    "notes": "Switch-II pocket, only druggable in the GDP-bound state."
+  },
+  "EGFR": {
+    "gene": "EGFR",
+    "pocket": {
+      "hydrophobicity": 0.55,
+      "polarity": 0.40,
+      "reference_mw": 400
+    },
+    "mw": [300, 500],
+    "logp": [2.0, 5.0],
+    "hbd": [0, 2],
+    "hba": [4, 9],
+    "tpsa": [60, 115],
+    "notes": "ATP site of the kinase domain, T790M gatekeeper variants considered."
+  }
+}
