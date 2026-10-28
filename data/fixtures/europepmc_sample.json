@@ -1,0 +1,19 @@
+{
+  "hitCount": 2,
+  "resultList": {
+    "result": [
+      {
+        "id": "38000001",
+        "title": "SHP099 is a potent allosteric SHP2 inhibitor",
+        "pubYear": "2016",
+        "abstractText": "SHP099 selectively inhibits SHP2 and suppresses RAS-MAPK signalling in sensitive models."
+      },
+      {
+        "id": "38000002",
+        "title": "SHP2 inhibition fails to sustain pathway suppression in colorectal models",
+        "pubYear": "2020",
+        "abstractText": "SHP099 did not inhibit pERK in DLD1 xenografts and no significant tumour growth inhibition was observed."
+      }
+    ]
+  }
+}

@@ -223,7 +223,7 @@ medscriptai-onco/
 │   ├── tiny_model.py           # local 2-layer model used by --tiny
 │   └── README.md               # the fine-tuning plan, step by step
 ├── data/                       # seed knowledge: targets, drugs, assays, triples, literature
-├── tests/                      # 55 pytest tests, run on both engines
+├── tests/                      # 58 pytest tests, run on both engines
 ├── docker-compose.yml          # local Neo4j + loader
 ├── .github/workflows/ci.yml    # tests on 3.11 + 3.12, both engines
 └── Dockerfile
@@ -257,6 +257,11 @@ which backend answered (`backend: rdkit | graph-estimates`).
 **Docking (`src/tools/docking.py`)** — shape, hydrophobic and polarity
 complementarity against the pocket profile, mapped to an estimated kcal/mol.
 Deterministic, so two runs never disagree.
+
+**Literature (`src/tools/literature.py`)** — a curated local corpus by default,
+plus an optional live Europe PMC search. The live parser and its
+disable-after-failure behaviour are tested against the recorded response in
+`data/fixtures/`, so the code is covered even where the network is blocked.
 
 **Knowledge graph (`src/tools/knowledge_graph.py`)** — direct and two-hop paths
 between drug and target, with edge polarity. Local JSON by default; set
@@ -340,7 +345,7 @@ can say `ABSTAIN`.
 ## Tests
 
 ```bash
-pytest -q                        # 55 tests, no network, no keys
+pytest -q                        # 58 tests, no network, no keys
 USE_LANGGRAPH=1 pytest -q        # same suite on the LangGraph engine
 python main.py --demo
 ```
