@@ -98,12 +98,29 @@ def embed(smiles: str) -> np.ndarray:
 
 
 def predict_binding(smiles: str, profile: dict) -> tuple:
-    """Returns (score in [0,1], explanation string)."""
+    """Returns (score in [0,1], explanation string).
+
+    Uses the trained torch checkpoint when one exists (`training/train_gnn.py`);
+    otherwise falls back to the seeded, untrained NumPy path. Either way the
+    readout on top of the embedding is rule-based, and the report says so.
+    """
     descriptors = qsar.compute(smiles)
     if "error" in descriptors:
         return 0.0, descriptors["error"]
 
-    embedding = embed(smiles)
+    embedding, source = None, "untrained numpy message passing"
+    try:                                          # local import avoids a cycle
+        from src.tools import gnn_torch
+
+        model = gnn_torch.load()
+        if model is not None:
+            embedding = gnn_torch.embed(smiles, model)
+            source = "trained checkpoint - " + gnn_torch.describe()
+    except Exception as exc:                      # noqa: BLE001 - torch optional
+        source = f"untrained numpy message passing ({type(exc).__name__})"
+
+    if embedding is None:
+        embedding = embed(smiles)
 
     # Readout part 1: how well the molecule's bulk properties sit inside the
     # target's reference window (explainable, hand-set weights).
@@ -121,13 +138,10 @@ def predict_binding(smiles: str, profile: dict) -> tuple:
             descriptor_terms.append(0.0)
 
     # Readout part 2: projection of the pooled graph embedding.
-    head = _seeded_matrix("readout", HIDDEN, 1, scale=0.15).ravel()
-    graph_term = float(np.dot(embedding, head))
+    head = _seeded_matrix("readout", len(embedding), 1, scale=0.15).ravel()
+    graph_term = float(np.dot(np.asarray(embedding, dtype=float), head))
 
     logit = 1.2 * sum(descriptor_terms) / max(len(descriptor_terms), 1) + graph_term
     score = float(1.0 / (1.0 + np.exp(-2.0 * logit)))
-    detail = (
-        "untrained 2-layer message passing; readout = profile fit + graph projection. "
-        + "; ".join(notes[:3])
-    )
+    detail = f"{source}; readout = profile fit + graph projection. " + "; ".join(notes[:3])
     return round(score, 4), detail

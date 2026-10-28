@@ -5,6 +5,7 @@ shim in `src/core/graph.py` is used. Both expose the same API, so the agent
 files and the graph wiring are identical either way - only the engine changes.
 """
 
+import sys
 import config
 
 _ENGINE = None
@@ -23,7 +24,7 @@ def build_state_graph(state_schema=None):
             return StateGraph(schema), END, _ENGINE
         except ImportError:
             print("[engine] langgraph is not installed - falling back to the "
-                  "built-in StateGraph shim (pip install langgraph)")
+                  "built-in StateGraph shim (pip install langgraph)", file=sys.stderr)
 
     from src.core.graph import END, StateGraph
 

@@ -10,13 +10,13 @@ uvicorn>=0.27
 pytest>=8.0
 httpx2>=0.1            # starlette's TestClient dependency (newer FastAPI)
 
-# Optional extras, uncomment as you need them:
+# Optional extras - each one upgrades a layer, and each is detected at runtime:
 # langgraph>=1.0        # real orchestration engine (USE_LANGGRAPH=1)
 # neo4j>=5.20           # real knowledge graph instead of the JSON snapshot
-# rdkit>=2023.9.5       # production descriptors instead of src/tools/qsar.py
-# torch>=2.2            # trained GNN checkpoint instead of the numpy prototype
+rdkit>=2024.3          # real descriptors (falls back to graph estimates if absent)
+# torch>=2.2            # trained GNN + the fine-tuning smoke runs (training/*.py)
 # transformers>=4.44    # SFT (training/sft_train.py)
-# trl>=0.11             # DPO (training/dpo_train.py)
+# trl>=0.11             # DPO (training/dpo_train.py) for real training runs
 # datasets>=2.20
 # peft>=0.12
 # accelerate>=0.30

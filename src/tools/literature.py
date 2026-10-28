@@ -5,6 +5,7 @@ Europe PMC / PubMed call would slot in - same return type, so the Evidence
 agent does not change.
 """
 
+import sys
 import json
 
 import config
@@ -83,7 +84,7 @@ def search_live(drug: str, target: str, limit: int = 10) -> list:
         # One failure is enough: stop retrying and stay on the local corpus.
         _LIVE_DISABLED = True
         print(f"[literature] live search unavailable ({type(exc).__name__}); "
-              "using the local corpus for the rest of this run")
+              "using the local corpus for the rest of this run", file=sys.stderr)
         return []
 
     items = []

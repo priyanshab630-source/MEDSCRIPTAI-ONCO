@@ -5,6 +5,7 @@ to deterministic rule-based reasoning. That is why the prototype runs with no
 keys, and why the evidence trail stays reproducible either way.
 """
 
+import sys
 import requests
 
 import config
@@ -41,5 +42,5 @@ def chat(system: str, prompt: str, temperature: float = 0.2):
         data = response.json()
         return data["choices"][0]["message"]["content"].strip()
     except Exception as exc:                     # noqa: BLE001 - never break a run
-        print(f"[llm] call failed ({exc}); falling back to rule-based reasoning")
+        print(f"[llm] call failed ({exc}); falling back to rule-based reasoning", file=sys.stderr)
         return None

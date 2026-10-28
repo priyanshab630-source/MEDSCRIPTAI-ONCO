@@ -1,0 +1,11 @@
+{
+  "target": "MolLogP",
+  "molecules": 33,
+  "train": 26,
+  "val": 7,
+  "epochs": 120,
+  "hidden": 32,
+  "val_mae": 0.6876,
+  "target_mean": 1.2059,
+  "target_std": 1.1209
+}

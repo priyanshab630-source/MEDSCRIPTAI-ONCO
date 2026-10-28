@@ -32,6 +32,8 @@ def run(state):
         computations=[c.to_dict() for c in computations],
         abstain_reasons=reasons,
         trace=state.get("trace", []),
+        tool_calls=state.get("tool_calls", []),
+        tool_mode=state.get("tool_mode", "deterministic"),
     )
     state["report"] = report
     return log(state, "decision_agent", f"{outcome} (uncertainty {overall:.2f})")

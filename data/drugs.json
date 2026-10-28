@@ -21,8 +21,8 @@
   },
   "Adagrasib": {
     "target": "KRAS_G12C",
-    "smiles": "C=CC(=O)N1CCN(c2ccc3c(c2)nc(Nc2ccc4c(c2F)CCN4C(=O)C=C)n3)CC1",
-    "note": "Illustrative analogue SMILES for the demo."
+    "smiles": "C=CC(=O)N1CCN(c2ccc3ncnc(Nc4cc(Cl)c(F)cc4OC)c3c2)CC1",
+    "note": "Illustrative analogue SMILES (quinazoline covalent inhibitor) for the demo; validated with RDKit."
   },
   "Osimertinib": {
     "target": "EGFR",

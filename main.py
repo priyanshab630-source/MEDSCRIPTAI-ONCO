@@ -44,6 +44,12 @@ def print_report(report: dict) -> None:
     for item in report["computations"]:
         print(f"  {item['name']:<14} {item['score']:.2f}  {item['detail'][:70]}")
 
+    if report.get("tool_calls"):
+        print(f"\nTool orchestration ({report.get('tool_mode')} policy)")
+        for step in report["tool_calls"]:
+            mark = "ok" if step.get("ok") else "!!"
+            print(f"  [{mark}] {step['tool']:<20} {step['observation'][:80]}")
+
     print("\nEvidence")
     for item in report["evidence"]:
         tag = {1: "+", -1: "-", 0: "~"}[item["polarity"]]

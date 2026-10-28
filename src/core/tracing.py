@@ -9,6 +9,7 @@ Both remote sinks are best-effort: a network or schema problem is logged and the
 run continues, because observability must never break the pipeline.
 """
 
+import sys
 import json
 import time
 import uuid
@@ -70,7 +71,7 @@ class Tracer:
             with open(config.TRACE_DIR / "runs.jsonl", "a", encoding="utf-8") as handle:
                 handle.write(json.dumps(record) + "\n")
         except OSError as exc:
-            print(f"[tracing] could not write local trace ({exc})")
+            print(f"[tracing] could not write local trace ({exc})", file=sys.stderr)
 
     def _send_langsmith(self, record: dict) -> None:
         if not config.LANGSMITH_API_KEY:
@@ -95,7 +96,7 @@ class Tracer:
                 timeout=10,
             )
         except Exception as exc:                 # noqa: BLE001
-            print(f"[tracing] LangSmith upload failed ({type(exc).__name__})")
+            print(f"[tracing] LangSmith upload failed ({type(exc).__name__})", file=sys.stderr)
 
     def _send_langfuse(self, record: dict) -> None:
         if not (config.LANGFUSE_PUBLIC_KEY and config.LANGFUSE_SECRET_KEY):
@@ -120,7 +121,7 @@ class Tracer:
                 timeout=10,
             )
         except Exception as exc:                 # noqa: BLE001
-            print(f"[tracing] Langfuse upload failed ({type(exc).__name__})")
+            print(f"[tracing] Langfuse upload failed ({type(exc).__name__})", file=sys.stderr)
 
 
 def sinks() -> list:

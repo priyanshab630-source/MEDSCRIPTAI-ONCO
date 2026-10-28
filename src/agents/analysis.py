@@ -10,7 +10,7 @@ import json
 import config
 from src.core.schemas import ComputeResult
 from src.core.state import log
-from src.tools import docking, gnn, qsar
+from src.tools import docking, gnn, qsar, react_agent
 
 
 def _target_profile(target: str) -> dict:
@@ -59,6 +59,13 @@ def run(state):
         raw=dock,
     ))
 
+    # ChemCrow-style orchestration: pick tools, record observations.
+    orchestration = react_agent.run(hypothesis, profile)
+    state["tool_calls"] = orchestration.get("steps", [])
+    state["tool_mode"] = orchestration.get("mode", "deterministic")
+
     state["computations"] = computations
     scores = ", ".join(f"{c.name}={c.score:.2f}" for c in computations)
-    return log(state, "computational_analysis", scores)
+    return log(state, "computational_analysis",
+               f"{scores}; {len(state['tool_calls'])} tool call(s) "
+               f"via {state['tool_mode']} policy")

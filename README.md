@@ -158,8 +158,20 @@ is the collapsed single-confidence output this framework exists to avoid.
 ```bash
 python main.py --drug SHP099 --target SHP2 --json > reports/shp099.json
 python training/build_dataset.py reports/*.json --out training/data
-python training/sft_train.py --data training/data/sft.jsonl   # needs a GPU
-python training/dpo_train.py --data training/data/dpo.jsonl   # needs a GPU
+
+# smoke run: a tiny local model, CPU, seconds - proves the pipeline end to end
+python training/sft_train.py --tiny --data training/data/sft.jsonl --max-steps 3
+python training/dpo_train.py --tiny --data training/data/dpo.jsonl --max-steps 3
+
+# real run: any instruction-tuned base model, LoRA, needs a GPU
+python training/sft_train.py --data training/data/sft.jsonl --model <checkpoint>
+python training/dpo_train.py --data training/data/dpo.jsonl --model training/checkpoints/sft
+```
+
+The GNN is trained the same way:
+
+```bash
+python training/train_gnn.py --epochs 300     # writes models/gnn_logp.pt
 ```
 
 See `training/README.md`. The dataset builder is tested; the training runs are
@@ -202,13 +214,16 @@ medscriptai-onco/
 │       └── llm.py              # Sarvam AI client with silent fallback
 ├── scripts/
 │   └── load_neo4j.py           # load the KG snapshot into a real Neo4j
+├── models/                     # trained GNN checkpoint + its metadata
 ├── training/
 │   ├── build_dataset.py        # reports -> SFT + DPO datasets
-│   ├── sft_train.py            # LoRA SFT (needs a GPU, not run in CI)
-│   ├── dpo_train.py            # preference tuning (needs a GPU, not run in CI)
+│   ├── sft_train.py            # LoRA SFT, plus --tiny for a CPU smoke run
+│   ├── dpo_train.py            # DPO preference tuning, plus --tiny
+│   ├── train_gnn.py            # trains the GNN on a proxy property task
+│   ├── tiny_model.py           # local 2-layer model used by --tiny
 │   └── README.md               # the fine-tuning plan, step by step
 ├── data/                       # seed knowledge: targets, drugs, assays, triples, literature
-├── tests/                      # 39 pytest tests, run on both engines
+├── tests/                      # 55 pytest tests, run on both engines
 ├── docker-compose.yml          # local Neo4j + loader
 ├── .github/workflows/ci.yml    # tests on 3.11 + 3.12, both engines
 └── Dockerfile
@@ -218,13 +233,26 @@ medscriptai-onco/
 
 ## How the pieces work
 
-**Molecular GNN (`src/tools/gnn.py`)** — atom features → two rounds of
-degree-normalised neighbourhood aggregation → mean pooling → a readout that
-combines the graph embedding with the target's pocket window. NumPy only.
+**Molecular GNN (`src/tools/gnn.py`, `gnn_torch.py`)** — atom features → two
+rounds of degree-normalised neighbourhood aggregation → mean pooling → a readout
+that combines the embedding with the target's pocket window. Two implementations:
+a NumPy one that runs anywhere, and a **PyTorch one with a trained checkpoint**
+(`models/gnn_logp.pt`, produced by `training/train_gnn.py`). The checkpoint is
+trained on a proxy property (MolLogP) over a 33-molecule library — that makes the
+embedding genuinely learned, but the affinity readout on top of it is still
+rule-based, and the report says which one ran.
 
-**QSAR (`src/tools/qsar.py`)** — molecular weight, logP, HBD/HBA, ring count,
-rotatable bonds and TPSA computed from the parsed graph, then compared with the
-target's reference window. No RDKit required.
+**Tool orchestration (`src/tools/react_agent.py`)** — ChemCrow-style loop: pick a
+tool, record the observation, decide the next one. With an LLM configured the
+model chooses; without one a deterministic priority policy does, so runs stay
+reproducible. Tools: RDKit descriptors, GNN, docking, knowledge-graph lookup,
+literature search. The transcript lands in `report["tool_calls"]`.
+
+**QSAR (`src/tools/qsar.py`)** — real RDKit descriptors (MolWt, MolLogP,
+HBD/HBA, TPSA, rings, rotatable bonds, QED) compared against the target's
+reference window, which is derived from known inhibitors of that target. Without
+RDKit it falls back to the pure-Python graph estimates, and every report records
+which backend answered (`backend: rdkit | graph-estimates`).
 
 **Docking (`src/tools/docking.py`)** — shape, hydrophobic and polarity
 complementarity against the pocket profile, mapped to an estimated kcal/mol.
@@ -269,14 +297,17 @@ curl -X POST http://localhost:8000/analyze \
 
 This is an honest research prototype, not a validated pipeline:
 
-- **The GNN is untrained.** The message passing is real; the readout weights are
-  hand-set and seeded. It demonstrates the wiring, not a learned affinity
-  predictor. That is exactly why `model_reliability` carries a fixed 0.45
-  penalty in the uncertainty vector — the framework prices in its own weakness.
+- **The GNN is trained, but not on affinity.** `models/gnn_logp.pt` is a real
+  checkpoint trained by `training/train_gnn.py` on a proxy task (MolLogP, 33
+  molecules, val MAE ≈ 0.7 logP units). The embedding is learned; the affinity
+  readout on top of it is not. `model_reliability` still carries its 0.45 penalty
+  for exactly that reason.
 - **Docking is a surrogate.** No 3D structures, no search box, no force field.
-- **The fine-tuning is a pipeline, not a result.** `training/` builds the data and
-  the training scripts are complete, but no model has been trained here and no
-  checkpoint ships. Say "specified and wired", not "fine-tuned".
+- **The fine-tuning runs, but the result is not useful.** Both scripts execute
+  end to end (`--tiny` mode: a 40k-parameter local model, CPU, a few steps) and
+  the DPO mode implements the real preference objective. What has never happened
+  is a training run on a real base model with a GPU — say "pipeline executed on a
+  toy model", not "fine-tuned a medical LLM".
 - **LangGraph and Neo4j are real but optional.** Both run for real when enabled;
   neither is the default, because the point of the default is a clone that works
   with no infrastructure.
@@ -295,7 +326,8 @@ can say `ABSTAIN`.
 
 ## Roadmap
 
-- [ ] Trained GNN checkpoint (torch) behind the same `predict_binding()` signature
+- [x] Trained GNN checkpoint (torch) behind the same `predict_binding()` signature
+- [~] Trained on a proxy property; a real affinity head needs assay data
 - [ ] Real docking: AutoDock Vina or DiffDock adapter
 - [ ] Live ingestion: ChEMBL, OpenTargets, PubMed/Europe PMC
 - [~] SFT + DPO pipeline built (`training/`); no checkpoint trained yet
@@ -308,7 +340,7 @@ can say `ABSTAIN`.
 ## Tests
 
 ```bash
-pytest -q                        # 39 tests, no network, no keys
+pytest -q                        # 55 tests, no network, no keys
 USE_LANGGRAPH=1 pytest -q        # same suite on the LangGraph engine
 python main.py --demo
 ```

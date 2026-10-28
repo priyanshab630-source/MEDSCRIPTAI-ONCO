@@ -27,8 +27,8 @@ jobs:
       - name: Run tests
         run: pytest -q
 
-      - name: Install optional orchestration engine
-        run: pip install langgraph
+      - name: Install optional extras used by the tests
+        run: pip install langgraph rdkit
 
       - name: Run tests on the LangGraph engine
         env:

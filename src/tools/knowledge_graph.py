@@ -7,6 +7,7 @@ Two backends behind one interface:
 Both return `EvidenceItem`s so downstream agents never care which one ran.
 """
 
+import sys
 import json
 
 import config
@@ -134,5 +135,5 @@ def get_backend():
         try:
             return Neo4jKG()
         except Exception as exc:                 # noqa: BLE001 - fall back loudly
-            print(f"[kg] Neo4j unavailable ({exc}); using local JSON snapshot")
+            print(f"[kg] Neo4j unavailable ({exc}); using local JSON snapshot", file=sys.stderr)
     return LocalKG()

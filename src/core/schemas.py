@@ -89,6 +89,8 @@ class VerdictReport:
     computations: list = field(default_factory=list)
     abstain_reasons: list = field(default_factory=list)
     trace: list = field(default_factory=list)
+    tool_calls: list = field(default_factory=list)
+    tool_mode: str = "deterministic"
     engine: str = "builtin"
 
     def to_dict(self) -> dict:
