@@ -89,6 +89,7 @@ class VerdictReport:
     computations: list = field(default_factory=list)
     abstain_reasons: list = field(default_factory=list)
     trace: list = field(default_factory=list)
+    engine: str = "builtin"
 
     def to_dict(self) -> dict:
         return asdict(self)

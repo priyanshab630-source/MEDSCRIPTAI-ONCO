@@ -27,5 +27,13 @@ jobs:
       - name: Run tests
         run: pytest -q
 
+      - name: Install optional orchestration engine
+        run: pip install langgraph
+
+      - name: Run tests on the LangGraph engine
+        env:
+          USE_LANGGRAPH: "1"
+        run: pytest -q
+
       - name: Smoke-test the CLI (no API keys)
         run: python main.py --demo > /dev/null

@@ -12,3 +12,7 @@ dist/
 .DS_Store
 .ipynb_checkpoints/
 *.log
+traces/
+reports/
+training/data/
+training/checkpoints/

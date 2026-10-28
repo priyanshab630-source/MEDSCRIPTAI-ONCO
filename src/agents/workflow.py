@@ -1,4 +1,4 @@
-"""The 6-agent LangGraph-style pipeline.
+"""The 6-agent pipeline, on either engine.
 
     hypothesis_planner -> evidence -> analysis -> critic -> adaptive_planner
                                      ^                          |
@@ -6,16 +6,20 @@
                                                                 |
                                                           decision -> END
 
-`src/core/graph.py` provides a drop-in StateGraph with the LangGraph API, so
-this file is the only place to touch if you switch to real LangGraph.
+Set `USE_LANGGRAPH=1` to run the same graph on the real LangGraph engine; without
+it the dependency-free shim in `src/core/graph.py` is used. Both paths are
+covered by tests/test_engine.py.
 """
 
 from src.agents import adaptive, analysis, critic, decision, evidence, planner
-from src.core.graph import END, StateGraph
+from src.core import tracing
+from src.core.engine import build_state_graph
+from src.core.state import OncoState
 
 
-def build_graph():
-    graph = StateGraph(dict)
+def _build():
+    graph, end, engine = build_state_graph(OncoState)
+
     graph.add_node("hypothesis_planner", planner.run)
     graph.add_node("evidence_agent", evidence.run)
     graph.add_node("computational_analysis", analysis.run)
@@ -33,12 +37,33 @@ def build_graph():
         lambda state: state.get("next_action", "decision"),
         {"evidence": "evidence_agent", "decision": "decision_agent"},
     )
-    graph.add_edge("decision_agent", END)
-    return graph.compile()
+    graph.add_edge("decision_agent", end)
+    return graph.compile(), engine
 
 
-def run_pipeline(hypothesis) -> dict:
-    """Convenience wrapper: hypothesis in, VerdictReport out."""
-    final_state = build_graph().invoke({"hypothesis": hypothesis, "loops": 0,
-                                        "trace": []})
-    return final_state["report"]
+def build_graph():
+    """The compiled graph (used by tests and the API health check)."""
+    return _build()[0]
+
+
+def run_pipeline(hypothesis, trace: bool = True):
+    """Hypothesis in, VerdictReport out, with one trace record per run."""
+    compiled, engine = _build()
+    tracer = tracing.Tracer("onco.validate", {
+        "drug": hypothesis.drug, "target": hypothesis.target,
+        "disease": hypothesis.disease, "engine": engine,
+    })
+
+    final_state = compiled.invoke({
+        "hypothesis": hypothesis, "loops": 0, "trace": [],
+    })
+    report = final_state["report"]
+    report.engine = engine
+
+    for step in final_state.get("trace", []):
+        tracer.event(step["agent"], {"message": step["message"]})
+    if trace:
+        tracer.end({"verdict": report.verdict,
+                    "overall_uncertainty": report.overall_uncertainty,
+                    "dominant_dimension": report.dominant_dimension})
+    return report

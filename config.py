@@ -23,6 +23,21 @@ NEO4J_URI = os.getenv("NEO4J_URI", "")
 NEO4J_USER = os.getenv("NEO4J_USER", "neo4j")
 NEO4J_PASSWORD = os.getenv("NEO4J_PASSWORD", "")
 
+# ---------- Orchestration engine ----------
+# USE_LANGGRAPH=1 runs the real LangGraph StateGraph; otherwise the dependency-free
+# shim in src/core/graph.py is used. Same nodes, same edges, same result.
+USE_LANGGRAPH = os.getenv("USE_LANGGRAPH", "0") in ("1", "true", "yes")
+
+# ---------- Observability ----------
+# Local JSONL traces are always written; LangSmith / Langfuse are opt-in.
+TRACE_DIR = Path(os.getenv("TRACE_DIR", str(ROOT / "traces")))
+TRACE_ENABLED = os.getenv("TRACE_ENABLED", "1") in ("1", "true", "yes")
+LANGSMITH_API_KEY = os.getenv("LANGSMITH_API_KEY", "")
+LANGSMITH_PROJECT = os.getenv("LANGSMITH_PROJECT", "medscriptai-onco")
+LANGFUSE_PUBLIC_KEY = os.getenv("LANGFUSE_PUBLIC_KEY", "")
+LANGFUSE_SECRET_KEY = os.getenv("LANGFUSE_SECRET_KEY", "")
+LANGFUSE_HOST = os.getenv("LANGFUSE_HOST", "https://cloud.langfuse.com")
+
 # ---------- Decision policy ----------
 ABSTAIN_THRESHOLD = float(os.getenv("ABSTAIN_THRESHOLD", "0.55"))
 SUPPORT_THRESHOLD = float(os.getenv("SUPPORT_THRESHOLD", "0.30"))

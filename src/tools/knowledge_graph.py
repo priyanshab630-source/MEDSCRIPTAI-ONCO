@@ -80,11 +80,19 @@ class LocalKG:
 
 
 class Neo4jKG:
-    """Same interface, backed by a real Neo4j instance."""
+    """Same interface, backed by a real Neo4j instance.
+
+    Pass `driver` to inject one (that is how the tests exercise the Cypher
+    without a live database); leave it out to connect from config.
+    """
 
     backend = "neo4j"
 
-    def __init__(self):
+    def __init__(self, driver=None):
+        if driver is not None:
+            self.driver = driver
+            return
+
         from neo4j import GraphDatabase          # imported lazily on purpose
 
         self.driver = GraphDatabase.driver(
@@ -92,9 +100,11 @@ class Neo4jKG:
         )
 
     def evidence(self, drug: str, target: str) -> list:
+        # scripts/load_neo4j.py stores every edge as :RELATED with a `relation`
+        # property, so the relationship label falls back to its type.
         query = """
-        MATCH path = (d {name: $drug})-[*1..2]-(t {name: $target})
-        RETURN [r IN relationships(path) | type(r)] AS rels,
+        MATCH path = (d:Entity {name: $drug})-[*1..2]-(t:Entity {name: $target})
+        RETURN [r IN relationships(path) | coalesce(r.relation, type(r))] AS rels,
                [n IN nodes(path) | n.name] AS nodes,
                [r IN relationships(path) | coalesce(r.polarity, 1)] AS polarities
         LIMIT 25

@@ -69,10 +69,10 @@ The architecture is target-agnostic. **SHP2 (PTPN11) is the first case study.**
                         UNCERTAIN / ABSTAIN + evidence trail
 ```
 
-The graph is a `StateGraph` with one conditional edge (the adaptive loop). It is
-implemented in `src/core/graph.py` with the same API as LangGraph, so the
-prototype runs with **zero heavy dependencies** — swap in the real engine by
-installing `langgraph` and pointing `src/agents/workflow.py` at it.
+The graph is a `StateGraph` with one conditional edge (the adaptive loop). It
+runs on the **real LangGraph engine** when `USE_LANGGRAPH=1`, and on a
+dependency-free shim with the same API otherwise — same nodes, same edges, same
+verdict. `tests/test_engine.py` runs the suite on both and asserts they agree.
 
 ---
 
@@ -121,6 +121,50 @@ cp .env.example .env
 With no key, agents fall back to deterministic rule-based reasoning and the run
 stays reproducible. `GET /health` tells you which mode is active.
 
+### Real knowledge graph (Neo4j)
+
+The JSON snapshot is the default so the prototype runs with no database. To use
+a real graph:
+
+```bash
+docker compose up -d neo4j          # Neo4j 5 + browser on :7474
+docker compose run --rm loader      # loads data/kg_triples.json
+NEO4J_URI=bolt://localhost:7687 NEO4J_PASSWORD=testpassword \
+    python main.py --drug SHP099 --target SHP2
+```
+
+Edges are stored as `(:Entity)-[:RELATED {relation, polarity, source}]->(:Entity)`
+so new relation types need no migration. The Cypher is exercised in
+`tests/test_neo4j.py` against a fake driver, so the query shape is tested even
+where no database is available.
+
+### Observability
+
+Every run writes one JSON line to `traces/runs.jsonl` (agent steps, inputs,
+outputs, duration). LangSmith and Langfuse are opt-in through environment
+variables and are best-effort — an observability outage never breaks a run:
+
+```bash
+LANGSMITH_API_KEY=... LANGSMITH_PROJECT=medscriptai-onco python main.py --demo
+LANGFUSE_PUBLIC_KEY=... LANGFUSE_SECRET_KEY=... python main.py --demo
+```
+
+### Fine-tuning (SFT + DPO)
+
+`training/build_dataset.py` turns validated reports into two datasets: an SFT set
+that teaches the four-way verdict format, and a DPO set whose *rejected* answer
+is the collapsed single-confidence output this framework exists to avoid.
+
+```bash
+python main.py --drug SHP099 --target SHP2 --json > reports/shp099.json
+python training/build_dataset.py reports/*.json --out training/data
+python training/sft_train.py --data training/data/sft.jsonl   # needs a GPU
+python training/dpo_train.py --data training/data/dpo.jsonl   # needs a GPU
+```
+
+See `training/README.md`. The dataset builder is tested; the training runs are
+not, and no tuned checkpoint is shipped.
+
 ---
 
 ## Folder structure
@@ -156,9 +200,17 @@ medscriptai-onco/
 │       ├── literature.py       # local corpus + optional Europe PMC
 │       ├── drugs.py            # seed compound table
 │       └── llm.py              # Sarvam AI client with silent fallback
+├── scripts/
+│   └── load_neo4j.py           # load the KG snapshot into a real Neo4j
+├── training/
+│   ├── build_dataset.py        # reports -> SFT + DPO datasets
+│   ├── sft_train.py            # LoRA SFT (needs a GPU, not run in CI)
+│   ├── dpo_train.py            # preference tuning (needs a GPU, not run in CI)
+│   └── README.md               # the fine-tuning plan, step by step
 ├── data/                       # seed knowledge: targets, drugs, assays, triples, literature
-├── tests/                      # 24 pytest tests (graph, QSAR, uncertainty, verdict, API)
-├── .github/workflows/ci.yml    # tests on 3.11 + 3.12
+├── tests/                      # 39 pytest tests, run on both engines
+├── docker-compose.yml          # local Neo4j + loader
+├── .github/workflows/ci.yml    # tests on 3.11 + 3.12, both engines
 └── Dockerfile
 ```
 
@@ -222,6 +274,12 @@ This is an honest research prototype, not a validated pipeline:
   predictor. That is exactly why `model_reliability` carries a fixed 0.45
   penalty in the uncertainty vector — the framework prices in its own weakness.
 - **Docking is a surrogate.** No 3D structures, no search box, no force field.
+- **The fine-tuning is a pipeline, not a result.** `training/` builds the data and
+  the training scripts are complete, but no model has been trained here and no
+  checkpoint ships. Say "specified and wired", not "fine-tuned".
+- **LangGraph and Neo4j are real but optional.** Both run for real when enabled;
+  neither is the default, because the point of the default is a clone that works
+  with no infrastructure.
 - **Descriptors are graph estimates.** MW is accurate; logP and TPSA are
   fragment approximations (aspirin: 186 vs 180.16 Da).
 - **The seed data is illustrative.** `data/*.json` is a small curated snapshot
@@ -240,8 +298,9 @@ can say `ABSTAIN`.
 - [ ] Trained GNN checkpoint (torch) behind the same `predict_binding()` signature
 - [ ] Real docking: AutoDock Vina or DiffDock adapter
 - [ ] Live ingestion: ChEMBL, OpenTargets, PubMed/Europe PMC
-- [ ] SFT + DPO fine-tune of the reasoning model on verdict traces
-- [ ] LangSmith / Langfuse tracing for every agent hop
+- [~] SFT + DPO pipeline built (`training/`); no checkpoint trained yet
+- [x] LangSmith / Langfuse tracing for every agent hop
+- [x] Real LangGraph engine (`USE_LANGGRAPH=1`) and Neo4j backend
 - [ ] Calibration study: does a low uncertainty vector actually mean a correct call?
 
 ---
@@ -249,7 +308,8 @@ can say `ABSTAIN`.
 ## Tests
 
 ```bash
-pytest -q          # 24 tests, no network, no keys
+pytest -q                        # 39 tests, no network, no keys
+USE_LANGGRAPH=1 pytest -q        # same suite on the LangGraph engine
 python main.py --demo
 ```
 
