@@ -17,7 +17,7 @@ Every call is appended to a transcript that ends up in the verdict report, so
 import json
 
 import config
-from src.tools import docking, gnn, knowledge_graph, literature, qsar
+from src.tools import docking, gnn, knowledge_graph, literature, policy, qsar
 from src.tools import llm
 
 SYSTEM = (
@@ -104,7 +104,14 @@ def run(hypothesis, profile: dict, max_steps: int = None) -> dict:
     """Run the tool loop. Returns {"mode", "steps": [...]}."""
     max_steps = max_steps or int(getattr(config, "MAX_TOOL_STEPS", 4))
     transcript, used = [], []
-    mode = "llm" if llm.available() else "deterministic"
+
+    trained_policy = policy.load() if getattr(config, "USE_RL_POLICY", True) else None
+    if trained_policy is not None:
+        mode = "rl-policy"
+    elif llm.available():
+        mode = "llm"
+    else:
+        mode = "deterministic"
 
     if not hypothesis.smiles:                     # nothing to compute on
         return {"mode": "skipped", "steps": [],
@@ -115,8 +122,12 @@ def run(hypothesis, profile: dict, max_steps: int = None) -> dict:
         if not remaining:
             break
 
-        choice = _choose_llm(transcript, hypothesis, remaining) if mode == "llm" else None
-        if choice is None:                        # fall back to the priority order
+        choice = None
+        if mode == "rl-policy":
+            choice = policy.select(transcript, True, max_steps, model=trained_policy)
+        elif mode == "llm":
+            choice = _choose_llm(transcript, hypothesis, remaining)
+        if choice is None or choice not in remaining:   # fall back to priority order
             choice = remaining[0]
 
         step = _run_tool(choice, hypothesis, profile)

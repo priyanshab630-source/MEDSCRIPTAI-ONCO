@@ -78,18 +78,25 @@ def literature_conflict(evidence) -> float:
     return _clamp(contra / len(lit))
 
 
-def model_reliability() -> float:
-    return MODEL_RELIABILITY_PENALTY
+def model_reliability(measured: float = None) -> float:
+    """Measured MC-dropout spread when a trained checkpoint is available.
+
+    Falls back to the fixed penalty when there is no model to ask - which keeps
+    the framework honest about an untrained pipeline.
+    """
+    if measured is None:
+        return MODEL_RELIABILITY_PENALTY
+    return _clamp(measured)
 
 
-def build(evidence, computations) -> UncertaintyVector:
+def build(evidence, computations, model_reliability_measured: float = None) -> UncertaintyVector:
     return UncertaintyVector(
         evidence_coverage=evidence_coverage(evidence),
         assay_consistency=assay_consistency(evidence),
         computational_agreement=computational_agreement(computations),
         graph_support=graph_support(evidence),
         literature_conflict=literature_conflict(evidence),
-        model_reliability=model_reliability(),
+        model_reliability=model_reliability(model_reliability_measured),
     )
 
 

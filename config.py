@@ -43,6 +43,8 @@ ABSTAIN_THRESHOLD = float(os.getenv("ABSTAIN_THRESHOLD", "0.55"))
 SUPPORT_THRESHOLD = float(os.getenv("SUPPORT_THRESHOLD", "0.30"))
 MAX_ADAPTIVE_LOOPS = int(os.getenv("MAX_ADAPTIVE_LOOPS", "2"))
 MAX_TOOL_STEPS = int(os.getenv("MAX_TOOL_STEPS", "4"))
+# Use the REINFORCE-trained tool policy when a checkpoint exists
+USE_RL_POLICY = os.getenv("USE_RL_POLICY", "1") in ("1", "true", "yes")
 
 # Weights for the 6-dimension uncertainty vector (must sum to 1.0).
 UNCERTAINTY_WEIGHTS = {

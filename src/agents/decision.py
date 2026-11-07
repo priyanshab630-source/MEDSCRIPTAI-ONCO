@@ -15,7 +15,8 @@ def run(state):
     evidence = state.get("evidence", [])
     computations = state.get("computations", [])
 
-    vector = state.get("uncertainty") or unc.build(evidence, computations)
+    vector = state.get("uncertainty") or unc.build(
+        evidence, computations, state.get("model_reliability_measured"))
     state["uncertainty"] = vector
 
     outcome, rationale, reasons = verdict_policy.decide(evidence, computations, vector)

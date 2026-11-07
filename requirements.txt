@@ -14,7 +14,9 @@ httpx2>=0.1            # starlette's TestClient dependency (newer FastAPI)
 # langgraph>=1.0        # real orchestration engine (USE_LANGGRAPH=1)
 # neo4j>=5.20           # real knowledge graph instead of the JSON snapshot
 rdkit>=2024.3          # real descriptors (falls back to graph estimates if absent)
-# torch>=2.2            # trained GNN + the fine-tuning smoke runs (training/*.py)
+# torch>=2.2            # trained GNN, MC-dropout uncertainty, RL policy, fine-tuning
+# vina>=1.2             # real AutoDock Vina docking (src/tools/vina_adapter.py)
+# meeko>=0.5            # ligand PDBQT preparation for Vina
 # transformers>=4.44    # SFT (training/sft_train.py)
 # trl>=0.11             # DPO (training/dpo_train.py) for real training runs
 # datasets>=2.20

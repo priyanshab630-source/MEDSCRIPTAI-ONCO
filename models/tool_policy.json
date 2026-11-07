@@ -1,0 +1,13 @@
+{
+  "episodes": 200,
+  "max_steps": 4,
+  "mean_return": 0.8495,
+  "tools": [
+    "rdkit_descriptors",
+    "docking",
+    "gnn_binding",
+    "kg_lookup",
+    "literature_search"
+  ],
+  "feature_dim": 11
+}

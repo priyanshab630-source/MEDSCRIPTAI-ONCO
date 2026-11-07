@@ -15,11 +15,14 @@ def _hypothesis():
 
 def test_loop_records_every_tool_call():
     result = react_agent.run(_hypothesis(), PROFILE, max_steps=4)
-    assert result["mode"] in ("deterministic", "llm")
+    assert result["mode"] in ("deterministic", "llm", "rl-policy")
     tools = [step["tool"] for step in result["steps"]]
-    assert "rdkit_descriptors" in tools
-    assert any(t in tools for t in ("docking", "gnn_binding"))
+    # whichever policy runs, the loop must gather both a computational and an
+    # evidence signal - which tool provides them is the policy's business
+    assert any(t in tools for t in ("rdkit_descriptors", "docking", "gnn_binding"))
+    assert any(t in tools for t in ("kg_lookup", "literature_search"))
     assert all("observation" in step for step in result["steps"])
+    assert all(step["tool"] in react_agent.PRIORITY for step in result["steps"])
 
 
 def test_loop_stops_early_once_both_signals_exist():

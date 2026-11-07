@@ -15,7 +15,8 @@ def run(state):
     computations = state.get("computations", [])
     loops = state.get("loops", 0)
 
-    vector = unc.build(evidence, computations)
+    vector = unc.build(evidence, computations,
+                       state.get("model_reliability_measured"))
     overall = unc.overall(vector)
     state["uncertainty"] = vector
 

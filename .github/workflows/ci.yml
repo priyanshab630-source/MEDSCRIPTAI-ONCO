@@ -28,7 +28,9 @@ jobs:
         run: pytest -q
 
       - name: Install optional extras used by the tests
-        run: pip install langgraph rdkit
+        run: |
+          pip install langgraph rdkit
+          pip install torch --index-url https://download.pytorch.org/whl/cpu
 
       - name: Run tests on the LangGraph engine
         env:

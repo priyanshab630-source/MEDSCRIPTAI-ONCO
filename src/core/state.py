@@ -10,6 +10,9 @@ class OncoState(TypedDict, total=False):
     computations: list         # schemas.ComputeResult
     uncertainty: Any           # schemas.UncertaintyVector
     contradictions: list       # human-readable falsification notes
+    tool_calls: list           # ChemCrow-style tool transcript
+    tool_mode: str             # "rl-policy" | "llm" | "deterministic"
+    model_reliability_measured: float  # MC-dropout spread from the trained GNN
     loops: int                 # adaptive re-planning rounds used
     next_action: str           # "evidence" | "decision"
     trace: list                # agent-by-agent audit trail

@@ -46,15 +46,29 @@ def search(drug: str, target: str, disease: str = "") -> list:
         rel = relevance(record, drug, target, disease)
         if rel < 0.4:
             continue
+
+        # A stance only counts when the paper is about *this pair*. A paper on
+        # SHP2 says nothing about Osimertinib-SHP2, and a paper on Osimertinib
+        # says nothing about it hitting SHP2; treating either as support is how a
+        # wrong-target pair ends up looking supported. Anything less specific is
+        # kept as context with neutral polarity.
+        haystack = " ".join([record.get("title", ""), record.get("text", ""),
+                             record.get("drug", ""), record.get("target", "")]).lower()
+        drug_present = drug.lower() in haystack
+        target_root = target.split("_")[0].lower()
+        target_present = target.lower() in haystack or target_root in haystack
+        pair_specific = drug_present and target_present
+        stance = int(record.get("stance", 0)) if pair_specific else 0
         # Recency weighting: 2024 evidence counts more than 2014 evidence.
         year = int(record.get("year", 2015))
         recency = max(0.3, min(1.0, 0.3 + (year - 2010) * 0.07))
         items.append(EvidenceItem(
             source="literature",
             claim=f"{record['title']} ({year}): {record['text']}",
-            polarity=int(record.get("stance", 0)),
-            weight=round(recency * rel, 3),
+            polarity=stance,
+            weight=round(recency * rel * (1.0 if pair_specific else 0.35), 3),
             meta={"id": record.get("id"), "year": year, "relevance": rel,
+                  "pair_specific": pair_specific,
                   "study_type": record.get("study_type", "preclinical")},
         ))
     return items

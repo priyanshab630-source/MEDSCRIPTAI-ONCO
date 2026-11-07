@@ -10,7 +10,7 @@ import json
 import config
 from src.core.schemas import ComputeResult
 from src.core.state import log
-from src.tools import docking, gnn, qsar, react_agent
+from src.tools import docking, gnn, gnn_torch, qsar, react_agent
 
 
 def _target_profile(target: str) -> dict:
@@ -59,6 +59,14 @@ def run(state):
         raw=dock,
     ))
 
+    # Measured epistemic uncertainty from the trained GNN (MC dropout).
+    measured = None
+    try:
+        measured = gnn_torch.epistemic_uncertainty(smiles)
+    except Exception as exc:                      # noqa: BLE001 - torch optional
+        measured = None
+    state["model_reliability_measured"] = measured
+
     # ChemCrow-style orchestration: pick tools, record observations.
     orchestration = react_agent.run(hypothesis, profile)
     state["tool_calls"] = orchestration.get("steps", [])
@@ -66,6 +74,8 @@ def run(state):
 
     state["computations"] = computations
     scores = ", ".join(f"{c.name}={c.score:.2f}" for c in computations)
+    reliability = ("MC-dropout uncertainty "
+                   f"{measured:.2f}" if measured is not None else "no checkpoint")
     return log(state, "computational_analysis",
-               f"{scores}; {len(state['tool_calls'])} tool call(s) "
-               f"via {state['tool_mode']} policy")
+               f"{scores}; {len(state['tool_calls'])} tool call(s) via "
+               f"{state['tool_mode']} policy; {reliability}")

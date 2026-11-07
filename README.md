@@ -102,7 +102,7 @@ uvicorn api.app:app --reload --port 8000
 | # | Hypothesis | Expected |
 |---|---|---|
 | 1 | SHP099 → SHP2 in KRAS-mutant NSCLC | `SUPPORTED` |
-| 2 | SHP099 → SHP2 in KRAS-mutant CRC | `UNCERTAIN` (literature is split) |
+| 2 | SHP099 → SHP2 in KRAS-mutant CRC | `SUPPORTED` (pair-level evidence holds) |
 | 3 | RMC-4550 → SHP2 in KRAS-mutant CRC | `CONTRADICTED` |
 | 4 | Adagrasib → KRAS_G12C in NSCLC | `SUPPORTED` |
 | 5 | CompoundX → SHP2 | `ABSTAIN` |
@@ -207,6 +207,9 @@ medscriptai-onco/
 │       ├── smiles.py           # molecular graph reader (atoms, rings, implicit H)
 │       ├── qsar.py             # Lipinski / descriptor layer
 │       ├── gnn.py              # message-passing GNN (numpy)
+│       ├── gnn_torch.py        # trained GNN + MC-dropout uncertainty
+│       ├── policy.py           # REINFORCE tool-selection policy
+│       ├── vina_adapter.py     # real AutoDock Vina docking
 │       ├── docking.py          # surrogate docking score
 │       ├── knowledge_graph.py  # JSON snapshot + Neo4j backend
 │       ├── literature.py       # local corpus + optional Europe PMC
@@ -220,10 +223,12 @@ medscriptai-onco/
 │   ├── sft_train.py            # LoRA SFT, plus --tiny for a CPU smoke run
 │   ├── dpo_train.py            # DPO preference tuning, plus --tiny
 │   ├── train_gnn.py            # trains the GNN on a proxy property task
+│   ├── train_policy.py         # REINFORCE training for the tool policy
 │   ├── tiny_model.py           # local 2-layer model used by --tiny
 │   └── README.md               # the fine-tuning plan, step by step
 ├── data/                       # seed knowledge: targets, drugs, assays, triples, literature
-├── tests/                      # 58 pytest tests, run on both engines
+├── evaluation/                 # calibration study + metrics
+├── tests/                      # 86 pytest tests, run on both engines
 ├── docker-compose.yml          # local Neo4j + loader
 ├── .github/workflows/ci.yml    # tests on 3.11 + 3.12, both engines
 └── Dockerfile
@@ -242,6 +247,19 @@ trained on a proxy property (MolLogP) over a 33-molecule library — that makes 
 embedding genuinely learned, but the affinity readout on top of it is still
 rule-based, and the report says which one ran.
 
+**Learned uncertainty (`src/tools/gnn_torch.py`)** — Monte-Carlo dropout: 25
+stochastic forward passes give a mean and a spread, and that spread *is* the
+`model_reliability` dimension of the uncertainty vector. Ethanol, a molecule far
+from the training distribution, reports 0.33; benzene reports 0.06. When no
+checkpoint exists the vector falls back to the fixed penalty.
+
+**RL tool policy (`src/tools/policy.py`)** — the tool order is learned, not
+hardcoded. An 11-feature state (what is known, what is unused, how much budget is
+left) selects among five tools, trained by REINFORCE against the real environment:
+reward +1 for reaching both a computational and an evidence signal, +0.3 × mean
+computational score, −0.1 per call. `training/train_policy.py` runs 300 episodes
+in under a minute and writes `models/tool_policy.pt`.
+
 **Tool orchestration (`src/tools/react_agent.py`)** — ChemCrow-style loop: pick a
 tool, record the observation, decide the next one. With an LLM configured the
 model chooses; without one a deterministic priority policy does, so runs stay
@@ -254,9 +272,15 @@ reference window, which is derived from known inhibitors of that target. Without
 RDKit it falls back to the pure-Python graph estimates, and every report records
 which backend answered (`backend: rdkit | graph-estimates`).
 
-**Docking (`src/tools/docking.py`)** — shape, hydrophobic and polarity
-complementarity against the pocket profile, mapped to an estimated kcal/mol.
-Deterministic, so two runs never disagree.
+**Docking (`src/tools/docking.py`)** — conformer-aware: RDKit embeds and
+MMFF94-minimises five conformers per ligand, then scores size/radius/pharmacophore
+fit to the pocket's range (derived from its known inhibitors), hydrophobic and
+polar complementarity, minus an entropic penalty for floppy ligands. Real
+molecular mechanics on the ligand; the pocket is still a profile, not a structure.
+
+**Vina (`src/tools/vina_adapter.py`)** — genuine AutoDock Vina docking when you
+supply receptor and ligand PDBQT files. The library installs fine; the protein
+structure is the missing input, not the code.
 
 **Literature (`src/tools/literature.py`)** — a curated local corpus by default,
 plus an optional live Europe PMC search. The live parser and its
@@ -298,6 +322,35 @@ curl -X POST http://localhost:8000/analyze \
 
 ---
 
+## Calibration study
+
+`evaluation/` answers the question the whole design rests on: *does a low
+uncertainty actually mean a correct verdict?* Twenty hypotheses — six true pairs
+with assays, twelve wrong-target pairs, two unknowns — are pushed through the real
+pipeline.
+
+```bash
+python evaluation/run_calibration.py            # writes evaluation/report.json
+```
+
+| Metric | Value | Reading |
+|---|---|---|
+| Balanced accuracy | 0.83 | 4/6 true pairs supported, 0/12 wrong pairs supported |
+| False-support rate | 0.00 | no wrong pair was ever called `SUPPORTED` |
+| Precision / recall | 1.00 / 0.67 | when it says supported it is right; it is conservative |
+| Brier score | 0.068 | support score read as P(claim) is well calibrated |
+| Expected calibration error | 0.092 | small over-confidence in the 0.4–0.6 band |
+| AUROC (uncertainty → correctness) | 1.00 | the uncertainty vector separates real from wrong pairs |
+| Abstention | 100% on unknowns, 5.6% on labelled | abstains when it should |
+
+The study earned its keep immediately: it exposed that any paper mentioning the
+*target* was being counted as support for *any* drug paired with it, which made
+wrong pairs look supported (accuracy 0.28, Brier 0.43). Stances now only count
+when the paper is about the specific pair — see `src/tools/literature.py` and
+`tests/test_literature_pair.py`.
+
+---
+
 ## What is real and what is a prototype (read this)
 
 This is an honest research prototype, not a validated pipeline:
@@ -307,7 +360,15 @@ This is an honest research prototype, not a validated pipeline:
   molecules, val MAE ≈ 0.7 logP units). The embedding is learned; the affinity
   readout on top of it is not. `model_reliability` still carries its 0.45 penalty
   for exactly that reason.
-- **Docking is a surrogate.** No 3D structures, no search box, no force field.
+- **Docking is conformer-aware, not structure-based.** MMFF94 energetics are real,
+  but the pocket is a range profile. `vina_adapter.py` runs true docking once you
+  supply PDBQT files; none ship with the repo.
+- **The GNN is trained on a proxy property.** MolLogP, 33 molecules, val MAE 0.55
+  logP units. Its embedding and its MC-dropout spread are real; its *affinity*
+  prediction is not.
+- **The RL policy is trained on this corpus.** 300 episodes over the seed
+  drug-target pairs — enough to beat the fixed priority order here, not evidence
+  that it transfers to another corpus.
 - **The fine-tuning runs, but the result is not useful.** Both scripts execute
   end to end (`--tiny` mode: a 40k-parameter local model, CPU, a few steps) and
   the DPO mode implements the real preference objective. What has never happened
@@ -333,6 +394,7 @@ can say `ABSTAIN`.
 
 - [x] Trained GNN checkpoint (torch) behind the same `predict_binding()` signature
 - [~] Trained on a proxy property; a real affinity head needs assay data
+- [x] MC-dropout uncertainty, RL tool policy, calibration study
 - [ ] Real docking: AutoDock Vina or DiffDock adapter
 - [ ] Live ingestion: ChEMBL, OpenTargets, PubMed/Europe PMC
 - [~] SFT + DPO pipeline built (`training/`); no checkpoint trained yet
@@ -345,7 +407,7 @@ can say `ABSTAIN`.
 ## Tests
 
 ```bash
-pytest -q                        # 58 tests, no network, no keys
+pytest -q                        # 86 tests, no network, no keys
 USE_LANGGRAPH=1 pytest -q        # same suite on the LangGraph engine
 python main.py --demo
 ```

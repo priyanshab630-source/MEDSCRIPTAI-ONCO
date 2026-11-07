@@ -4,7 +4,19 @@
     "pocket": {
       "hydrophobicity": 0.62,
       "polarity": 0.35,
-      "reference_mw": 330
+      "mw_range": [
+        250,
+        500
+      ],
+      "radius_range": [
+        3.2,
+        6.6
+      ],
+      "aromatic_rings_range": [
+        1,
+        3
+      ],
+      "reference_mw": 380
     },
     "mw": [
       280,
@@ -33,6 +45,18 @@
     "pocket": {
       "hydrophobicity": 0.48,
       "polarity": 0.45,
+      "mw_range": [
+        400,
+        520
+      ],
+      "radius_range": [
+        4.6,
+        6.0
+      ],
+      "aromatic_rings_range": [
+        2,
+        3
+      ],
       "reference_mw": 460
     },
     "mw": [
@@ -62,7 +86,19 @@
     "pocket": {
       "hydrophobicity": 0.55,
       "polarity": 0.4,
-      "reference_mw": 400
+      "mw_range": [
+        350,
+        520
+      ],
+      "radius_range": [
+        4.5,
+        6.0
+      ],
+      "aromatic_rings_range": [
+        2,
+        3
+      ],
+      "reference_mw": 450
     },
     "mw": [
       350,

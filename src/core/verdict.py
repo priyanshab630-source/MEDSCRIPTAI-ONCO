@@ -49,7 +49,7 @@ def decide(evidence, computations, vector) -> tuple:
         )
         return "ABSTAIN", rationale, reasons
 
-    if contra_share >= 0.6 and support < 0.5:
+    if contra_share >= 0.5 and support < 0.35:
         rationale = (
             f"Contradicted: {contra_share:.0%} of retrieved literature conflicts "
             f"with the claim and only {support:.0%} of weighted evidence supports it."
