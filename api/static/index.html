@@ -211,6 +211,7 @@
         <button data-panel="evidence">Evidence</button>
         <button data-panel="trace">Agent trace</button>
         <button data-panel="models">Models &amp; DL</button>
+        <button data-panel="datasets">Datasets</button>
         <button data-panel="calibration">Calibration</button>
         <button data-panel="compare">Compare</button>
       </nav>
@@ -279,6 +280,19 @@
             </div>
             <div id="mc-body" style="margin-top:12px"></div>
           </div>
+        </div>
+      </section>
+
+      <section class="panel" id="panel-datasets">
+        <div class="card">
+          <div class="row"><h3 style="margin:0">Training data &amp; provenance</h3>
+            <div class="spacer"></div><span class="tag" id="dataset-count">—</span></div>
+          <div id="datasets-body"><div class="empty">Loading…</div></div>
+          <p class="note">Every dataset is registered in
+            <span class="mono">datasets/manifest.json</span> with its source URL, citation,
+            licence and SHA-256. Kaggle datasets can be pulled with
+            <span class="mono">python scripts/fetch_datasets.py --kaggle &lt;owner/slug&gt;</span>
+            on a machine with a Kaggle API token.</p>
         </div>
       </section>
 
@@ -605,6 +619,62 @@ async function runMcDropout() {
 }
 
 /* --------------------------------------------------------------- calibration */
+async function loadDatasets() {
+  try {
+    const data = await api("/datasets");
+    const training = data.gnn_training || {};
+    $("dataset-count").textContent = `${data.datasets.length} registered`;
+    const cards = data.datasets.map((item) => `
+      <div class="box" style="border:1px solid var(--line);border-radius:11px;
+           padding:12px 14px;background:var(--panel-2);margin-bottom:10px">
+        <div class="row" style="gap:8px">
+          <b>${item.title}</b>
+          <span class="tag">${item.task}</span>
+          <span class="tag">${item.rows} rows</span>
+          <span class="tag" style="color:${item.available ? "var(--ok)" : "var(--warn)"}">
+            ${item.available ? "bundled" : "not fetched"}</span>
+        </div>
+        <div class="note" style="margin-top:6px">
+          <b>target</b> ${item.target} ${item.units ? "(" + item.units + ")" : ""}
+          ${item.target_range ? "· observed " + item.target_range[0] + " … " + item.target_range[1] : ""}<br>
+          <b>source</b> ${item.source}<br>
+          ${item.url ? `<b>url</b> <a href="${item.url}" target="_blank" rel="noopener"
+            style="color:var(--accent)">${item.url}</a><br>` : ""}
+          <b>cite</b> ${item.citation}<br>
+          ${item.sha256 ? `<b>sha256</b> <span class="mono">${item.sha256.slice(0, 24)}…</span>` : ""}
+        </div>
+      </div>`).join("");
+
+    const metrics = training.test || {};
+    const metricRows = training.task === "classification"
+      ? `<tr><td>test accuracy</td><td class="mono">${metrics.accuracy ?? "—"}</td></tr>
+         <tr><td>test AUROC</td><td class="mono">${metrics.auroc ?? "—"}</td></tr>`
+      : `<tr><td>test MAE</td><td class="mono">${metrics.mae ?? "—"} ${training.target_units || ""}</td></tr>
+         <tr><td>test RMSE</td><td class="mono">${metrics.rmse ?? "—"}</td></tr>
+         <tr><td>test R²</td><td class="mono">${metrics.r2 ?? "—"}</td></tr>`;
+
+    $("datasets-body").innerHTML = `
+      <div class="kpi" style="margin-bottom:14px">
+        <div class="box"><div class="label">GNN trained on</div>
+          <div class="value" style="font-size:16px">${training.dataset || "—"}</div>
+          <div class="hint">${training.molecules || 0} molecules</div></div>
+        <div class="box"><div class="label">split</div>
+          <div class="value" style="font-size:16px">
+            ${training.split ? `${training.split.train}/${training.split.val}/${training.split.test}` : "—"}</div>
+          <div class="hint">train / val / test</div></div>
+        <div class="box"><div class="label">trained</div>
+          <div class="value" style="font-size:16px">${training.epochs || 0} ep</div>
+          <div class="hint">${training.trained_at || ""}</div></div>
+      </div>
+      <table style="margin-bottom:16px">
+        <tr><th>held-out metric</th><th>value</th></tr>${metricRows}
+      </table>
+      ${cards}`;
+  } catch (error) {
+    $("datasets-body").innerHTML = `<div class="empty neg">${error.message}</div>`;
+  }
+}
+
 async function loadCalibration(refresh = false) {
   $("cal-body").innerHTML = `<div class="empty"><span class="loading"></span> ${refresh
     ? "recomputing all cases…" : "loading…"}</div>`;
@@ -696,6 +766,7 @@ function selectTab(name) {
     panel.classList.toggle("active", panel.id === `panel-${name}`);
   });
   if (name === "calibration" && $("cal-body").querySelector(".empty")) loadCalibration();
+  if (name === "datasets" && $("datasets-body").querySelector(".empty")) loadDatasets();
   if (name === "models" && $("models-body").querySelector(".empty")) loadModels();
 }
 

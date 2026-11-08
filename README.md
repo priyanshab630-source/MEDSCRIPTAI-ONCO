@@ -132,6 +132,7 @@ the header tell you which components are live.
 | Agent trace | All six agents and what each decided |
 | Models & DL | Checkpoint sizes, architectures, algorithms, and an **MC-dropout explorer** — type any SMILES and see the predicted logP, the dropout spread and the derived epistemic uncertainty |
 | Calibration | Balanced accuracy, false-support rate, AUROC, Brier/ECE, abstention, and the per-case table; "Recompute" re-runs the study live |
+| Datasets | Provenance for every training set: source, citation, licence, row count, observed target range and checksum, plus the held-out metrics of the shipped checkpoint |
 | Compare | Paste several hypotheses (`drug, target, disease` per line) and diff their verdicts side by side |
 
 ### The demo cases
@@ -227,6 +228,7 @@ medscriptai-onco/
 │   │                           #          /compare /calibration
 │   └── static/index.html       # interactive dashboard (no build step)
 ├── scripts/
+│   ├── fetch_datasets.py       # fetch / verify / register datasets (incl. Kaggle)
 │   ├── run_local.sh            # one-command local server (macOS/Linux)
 │   └── run_local.ps1           # one-command local server (Windows)
 ├── src/
@@ -267,9 +269,11 @@ medscriptai-onco/
 │   ├── train_policy.py         # REINFORCE training for the tool policy
 │   ├── tiny_model.py           # local 2-layer model used by --tiny
 │   └── README.md               # the fine-tuning plan, step by step
+├── datasets/manifest.json      # provenance for every training dataset
+├── data/datasets/              # bundled real data (ESOL, BACE)
 ├── data/                       # seed knowledge: targets, drugs, assays, triples, literature
 ├── evaluation/                 # calibration study + metrics
-├── tests/                      # 96 pytest tests, run on both engines
+├── tests/                      # 113 pytest tests, run on both engines
 ├── docker-compose.yml          # local Neo4j + loader
 ├── .github/workflows/ci.yml    # tests on 3.11 + 3.12, both engines
 └── Dockerfile
@@ -363,11 +367,34 @@ curl -X POST http://localhost:8000/analyze \
 
 ---
 
+## Real datasets
+
+The GNN is no longer trained on a toy library. Two real, citable datasets ship in
+the repo with checksums and provenance, and a fetcher handles the rest:
+
+```bash
+python scripts/fetch_datasets.py --list       # sources, citations, licences
+python scripts/fetch_datasets.py --verify     # SHA-256 every bundled file
+python scripts/fetch_datasets.py --fetch qm7  # fetch an optional extra
+```
+
+| Dataset | Task | Rows | Target | Origin |
+|---|---|---|---|---|
+| `esol` | regression | 1,128 | measured aqueous solubility | MoleculeNet / Delaney 2004 |
+| `bace` | classification | 1,513 | BACE-1 inhibition class | MoleculeNet / Subramanian 2016 |
+
+The committed checkpoint is trained on **ESOL**: test MAE **0.736** log units,
+RMSE 0.969, R² 0.754 on 169 held-out molecules. Kaggle is wired through the
+official CLI (`--kaggle <owner/slug>`) but no Kaggle data is bundled — that host
+was unreachable from the build environment, and each Kaggle dataset carries its
+own licence. Full details, including how to add your own CSV, are in
+[DATASETS.md](DATASETS.md).
+
 ## The learned components, and the algorithms behind them
 
 | Component | Algorithm | Trained on | What it buys |
 |---|---|---|---|
-| Molecular GNN | 2-layer message-passing GNN (mean aggregation, tanh, mean pooling) + MLP head, Adam, MSE | 33 molecules, MolLogP proxy task, val MAE 0.55 | A learned molecular embedding, used by the affinity readout |
+| Molecular GNN | 2-layer message-passing GNN (mean aggregation, tanh, mean pooling) + MLP head, Adam, MSE / BCE | **1,128 molecules, ESOL measured solubility** (test MAE 0.736, R² 0.754) | A learned molecular embedding, used by the affinity readout |
 | Uncertainty | **Monte-Carlo dropout** — 25 seeded stochastic forward passes; std ÷ training spread → `model_reliability` | the same checkpoint | Replaces the hardcoded 0.45 penalty with a measured number (ethanol 0.33, benzene 0.06) |
 | Tool policy | **REINFORCE** (policy gradient) with a moving-average baseline; 11-feature state → masked softmax over 5 tools | 200–300 episodes against the live tool environment | Learns *which* evidence to gather instead of a hardcoded order; mean return 0.85 |
 | Verdict writer | **SFT** (LoRA, `--tiny` smoke mode) then **DPO** (reference-model preference objective, β = 0.1) | reports → chosen structured verdict vs. rejected collapsed-confidence answer | Teaches the four-way format and the abstention habit |
@@ -425,9 +452,10 @@ This is an honest research prototype, not a validated pipeline:
 - **Docking is conformer-aware, not structure-based.** MMFF94 energetics are real,
   but the pocket is a range profile. `vina_adapter.py` runs true docking once you
   supply PDBQT files; none ship with the repo.
-- **The GNN is trained on a proxy property.** MolLogP, 33 molecules, val MAE 0.55
-  logP units. Its embedding and its MC-dropout spread are real; its *affinity*
-  prediction is not.
+- **The GNN is trained on real solubility data, not affinity.** 1,128 measured
+  ESOL values, test MAE 0.736 log units. Its embedding and MC-dropout spread are
+  real; the readout that turns that embedding into a *binding* score is still
+  rule-based.
 - **The RL policy is trained on this corpus.** 300 episodes over the seed
   drug-target pairs — enough to beat the fixed priority order here, not evidence
   that it transfers to another corpus.
@@ -469,7 +497,7 @@ can say `ABSTAIN`.
 ## Tests
 
 ```bash
-pytest -q                        # 96 tests, no network, no keys
+pytest -q                        # 113 tests, no network, no keys
 USE_LANGGRAPH=1 pytest -q        # same suite on the LangGraph engine
 python main.py --demo
 ```

@@ -14,6 +14,7 @@ and `model_reliability` in the uncertainty vector still carries a penalty.
 """
 
 import json
+import pathlib
 import sys
 
 import numpy as np
@@ -23,8 +24,9 @@ from src.tools import gnn as numpy_gnn
 from src.tools import smiles as smiles_tool
 
 HIDDEN = 32
-CHECKPOINT = config.ROOT / "models" / "gnn_logp.pt"
-METADATA = config.ROOT / "models" / "gnn_logp.json"
+CHECKPOINT = config.ROOT / "models" / "gnn.pt"
+METADATA = config.ROOT / "models" / "gnn.json"
+LEGACY_CHECKPOINT = config.ROOT / "models" / "gnn_logp.pt"   # proxy-task checkpoint
 
 
 def available() -> bool:
@@ -79,8 +81,14 @@ def build_model(hidden: int = HIDDEN):
 
 
 def load(path=None):
-    """Load the trained model, or None when unavailable/untrained."""
+    """Load the trained model, or None when unavailable/untrained.
+
+    Prefers the current checkpoint (trained on a real dataset); falls back to the
+    legacy proxy-task weights so older clones still work.
+    """
     path = path or CHECKPOINT
+    if not path.exists() and LEGACY_CHECKPOINT.exists() and path == CHECKPOINT:
+        path = LEGACY_CHECKPOINT
     if not available() or not path.exists():
         return None
     import torch
@@ -168,10 +176,19 @@ def epistemic_uncertainty(smiles: str, n_samples: int = 25):
     return round(min(1.0, std / max(scale, 1e-6)), 4)
 
 
-def metadata() -> dict:
-    if not METADATA.exists():
+def metadata_for(checkpoint=None) -> pathlib.Path:
+    """Metadata lives next to its checkpoint: gnn.pt -> gnn.json."""
+    checkpoint = pathlib.Path(checkpoint or CHECKPOINT)
+    return checkpoint.with_suffix(".json")
+
+
+def metadata(checkpoint=None) -> dict:
+    path = metadata_for(checkpoint)
+    if not path.exists() and LEGACY_CHECKPOINT.with_suffix(".json").exists():
+        path = LEGACY_CHECKPOINT.with_suffix(".json")
+    if not path.exists():
         return {}
-    with open(METADATA, encoding="utf-8") as handle:
+    with open(path, encoding="utf-8") as handle:
         return json.load(handle)
 
 
@@ -180,6 +197,8 @@ def describe() -> str:
     if load() is None:
         return "untrained (no checkpoint)"
     info = metadata()
-    return (f"trained on proxy task {info.get('target', 'MolLogP')} "
-            f"({info.get('molecules', '?')} molecules, val MAE "
-            f"{info.get('val_mae', '?')}); MC-dropout uncertainty enabled")
+    dataset = info.get("dataset") or "proxy task"
+    metric = info.get("val_mae") or (info.get("val") or {}).get("mae")
+    detail = f"val MAE {metric}" if metric is not None else f"val {info.get('val')}"
+    return (f"trained on {dataset} ({info.get('molecules', '?')} molecules, "
+            f"{detail}); MC-dropout uncertainty enabled")

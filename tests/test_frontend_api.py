@@ -59,6 +59,15 @@ def test_drugs_and_targets_feed_the_form():
     assert "SHP2" in targets
 
 
+def test_datasets_endpoint_reports_provenance():
+    body = client.get("/datasets").json()
+    assert body["datasets"]
+    esol = next(item for item in body["datasets"] if item["name"] == "esol")
+    assert esol["available"] is True
+    assert "Delaney" in esol["citation"]
+    assert body["gnn_training"]["dataset"] in ("esol", "toy", None)
+
+
 def test_analyze_returns_a_renderable_report():
     response = client.post("/analyze", json={"drug": "SHP099", "target": "SHP2",
                                              "disease": "KRAS-mutant NSCLC"})

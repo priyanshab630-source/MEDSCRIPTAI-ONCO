@@ -1,50 +1,141 @@
-"""Train the message-passing GNN on a proxy property task.
+"""Train the message-passing GNN on a real dataset.
 
     pip install torch rdkit
-    python training/train_gnn.py --epochs 300
+    python training/train_gnn.py --dataset esol --epochs 60
+    python training/train_gnn.py --dataset bace --epochs 60      # classification
 
-The proxy task is MolLogP on `data/gnn_pretrain_smiles.json` (33 molecules). It
-exists to prove the training loop, the checkpoint format and the inference path -
-not to produce a binding predictor. Swap `--target` for a real assay column once
-you have one, and the rest of the pipeline does not change.
+Datasets come from `datasets/manifest.json`, so every run records where its data
+came from, who to cite and the file checksum. Bundled: ESOL (1128 measured
+solubilities, Delaney 2004) and BACE (1513 inhibition labels, MoleculeNet).
+`--dataset toy` falls back to the 33-molecule smoke library used earlier.
+
+What this trains: the graph encoder and a scalar head. For ESOL the head predicts
+measured log solubility; for BACE it predicts the inhibitor class (BCE loss).
+The same encoder is what `src/tools/gnn.py` uses for its binding readout, so a
+better-trained encoder is a better embedding - it is still not an affinity model.
 """
 
 import argparse
 import json
+import math
 import random
 import sys
+import time
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 import config  # noqa: E402
+from src.tools import datasets  # noqa: E402
+
+DEFAULT_OUT = config.ROOT / "models" / "gnn.pt"
 
 
-def make_dataset(target: str):
-    """[(smiles, value)] for every library molecule RDKit can parse."""
-    with open(config.DATA_DIR / "gnn_pretrain_smiles.json", encoding="utf-8") as handle:
-        smiles_list = json.load(handle)
-
+def toy_rows() -> list:
+    """The original 33-molecule smoke library, kept for a fast sanity run."""
     from rdkit import Chem
     from rdkit.Chem import Descriptors
 
+    smiles_list = json.loads(
+        (config.DATA_DIR / "gnn_pretrain_smiles.json").read_text(encoding="utf-8"))
     rows = []
     for smiles in smiles_list:
         molecule = Chem.MolFromSmiles(smiles)
-        if molecule is None:
-            continue
-        rows.append((smiles, float(Descriptors.MolLogP(molecule))))
+        if molecule is not None:
+            rows.append({"smiles": smiles,
+                         "target": float(Descriptors.MolLogP(molecule))})
     return rows
 
 
+def load_rows(name: str) -> tuple:
+    """(rows, provenance dict)."""
+    if name == "toy":
+        rows = toy_rows()
+        random.Random(13).shuffle(rows)
+        provenance = {"name": "toy", "title": "33-molecule smoke library",
+                      "task": "regression", "rows": len(rows),
+                      "target_label": "MolLogP", "target_units": "logP",
+                      "source": "RDKit-computed MolLogP over data/gnn_pretrain_smiles.json",
+                      "citation": "none - synthetic smoke test",
+                      "sha256": ""}
+        return rows, provenance
+
+    entry = datasets.get(name)
+    verify = datasets.verify(name)
+    if not verify["ok"]:
+        raise SystemExit(f"{name}: {verify['reason']}. "
+                         f"Run: python scripts/fetch_datasets.py --fetch {name}")
+
+    rows = datasets.load(name)
+    provenance = {
+        "name": entry["name"], "title": entry.get("title"),
+        "task": entry.get("task", "regression"),
+        "rows": len(rows),
+        "target_label": entry.get("target_label", entry["target_column"]),
+        "target_units": entry.get("target_units", ""),
+        "source": entry.get("source"), "citation": entry.get("citation"),
+        "url": entry.get("url"), "license": entry.get("license"),
+        "sha256": entry.get("sha256", ""),
+    }
+    return rows, provenance
+
+
+def auroc(labels: list, scores: list) -> float:
+    """Rank-based AUROC (Mann-Whitney U), no sklearn needed."""
+    positives = [s for s, l in zip(scores, labels) if l == 1]
+    negatives = [s for s, l in zip(scores, labels) if l == 0]
+    if not positives or not negatives:
+        return 0.0
+    wins = 0.0
+    for positive in positives:
+        for negative in negatives:
+            wins += 1.0 if positive > negative else 0.5 if positive == negative else 0.0
+    return round(wins / (len(positives) * len(negatives)), 4)
+
+
+def evaluate(model, batches, task: str, mean: float, std: float) -> dict:
+    import torch
+
+    model.eval()
+    predictions, targets = [], []
+    with torch.no_grad():
+        for x, adj, target in batches:
+            output = model(x, adj)
+            predictions.append(float(output))
+            targets.append(float(target))
+
+    if task == "classification":
+        labels = [1 if value > 0.5 else 0 for value in targets]
+        probabilities = [1.0 / (1.0 + math.exp(-value)) for value in predictions]
+        accuracy = sum(1 for p, l in zip(probabilities, labels)
+                       if (p >= 0.5) == (l == 1)) / len(labels)
+        return {"accuracy": round(accuracy, 4),
+                "auroc": auroc(labels, probabilities),
+                "n": len(labels)}
+
+    # regression: undo the standardisation before reporting errors
+    actual = [value * std + mean for value in predictions]
+    truth = [value * std + mean for value in targets]
+    mae = sum(abs(a - t) for a, t in zip(actual, truth)) / len(actual)
+    rmse = math.sqrt(sum((a - t) ** 2 for a, t in zip(actual, truth)) / len(actual))
+    mean_truth = sum(truth) / len(truth)
+    ss_tot = sum((t - mean_truth) ** 2 for t in truth)
+    ss_res = sum((a - t) ** 2 for a, t in zip(actual, truth))
+    return {"mae": round(mae, 4), "rmse": round(rmse, 4),
+            "r2": round(1 - ss_res / ss_tot, 4) if ss_tot else 0.0,
+            "n": len(actual)}
+
+
 def main(argv=None) -> int:
-    parser = argparse.ArgumentParser(description="Train the GNN on a proxy property")
-    parser.add_argument("--epochs", type=int, default=300)
-    parser.add_argument("--lr", type=float, default=0.02)
+    parser = argparse.ArgumentParser(description="Train the GNN on a real dataset")
+    parser.add_argument("--dataset", default="esol",
+                        help="esol | bace | qm7 | toy (see datasets/manifest.json)")
+    parser.add_argument("--epochs", type=int, default=60)
+    parser.add_argument("--lr", type=float, default=0.01)
     parser.add_argument("--hidden", type=int, default=32)
-    parser.add_argument("--val-fraction", type=float, default=0.2)
+    parser.add_argument("--batch-size", type=int, default=16)
     parser.add_argument("--seed", type=int, default=7)
-    parser.add_argument("--out", default=str(config.ROOT / "models" / "gnn_logp.pt"))
+    parser.add_argument("--out", default=str(DEFAULT_OUT))
     args = parser.parse_args(argv)
 
     try:
@@ -56,73 +147,103 @@ def main(argv=None) -> int:
 
     from src.tools import gnn_torch
 
-    rows = make_dataset("MolLogP")
-    if len(rows) < 10:
-        print("not enough molecules to train on")
+    rows, provenance = load_rows(args.dataset)
+    task = provenance["task"]
+    print(f"dataset {provenance['name']}: {len(rows)} rows, task={task}")
+    print(f"  source: {provenance.get('source')}")
+
+    train_rows, val_rows, test_rows = datasets.split(rows)
+    print(f"  split: train {len(train_rows)} / val {len(val_rows)} / test {len(test_rows)}")
+
+    targets = [row["target"] for row in train_rows]
+    mean = sum(targets) / len(targets)
+    std = (sum((value - mean) ** 2 for value in targets) / len(targets)) ** 0.5 or 1.0
+
+    def make_batches(subset):
+        batches = []
+        for row in subset:
+            x, adj = gnn_torch.features(row["smiles"])
+            if x.shape[0] == 0:
+                continue
+            normalised = (row["target"] - mean) / std if task == "regression" \
+                else row["target"]
+            batches.append((torch.from_numpy(x), torch.from_numpy(adj),
+                            torch.tensor(float(normalised), dtype=torch.float32)))
+        return batches
+
+    train_batches = make_batches(train_rows)
+    val_batches = make_batches(val_rows)
+    test_batches = make_batches(test_rows)
+    if not train_batches:
+        print("no trainable molecules")
         return 1
 
-    random.Random(args.seed).shuffle(rows)
-    split = max(1, int(len(rows) * (1 - args.val_fraction)))
-    train_rows, val_rows = rows[:split], rows[split:]
-
-    # Standardise the target so the loss is well conditioned.
-    mean = sum(value for _, value in train_rows) / len(train_rows)
-    std = (sum((value - mean) ** 2 for _, value in train_rows) / len(train_rows)) ** 0.5 or 1.0
-
-    def batch(rows_subset):
-        tensors = [(torch.from_numpy(gnn_torch.features(s)[0]),
-                    torch.from_numpy(gnn_torch.features(s)[1]),
-                    torch.tensor((v - mean) / std, dtype=torch.float32))
-                   for s, v in rows_subset]
-        return tensors
-
+    random.seed(args.seed)
+    torch.manual_seed(args.seed)
     model = gnn_torch.build_model(args.hidden)
     optimiser = torch.optim.Adam(model.parameters(), lr=args.lr)
-    loss_fn = torch.nn.MSELoss()
+    loss_fn = torch.nn.BCEWithLogitsLoss() if task == "classification" \
+        else torch.nn.MSELoss()
 
-    train_batches = batch(train_rows)
-    val_batches = batch(val_rows)
-
+    started = time.time()
     for epoch in range(1, args.epochs + 1):
         model.train()
-        total = 0.0
-        for x, adj, target in train_batches:
-            optimiser.zero_grad()
+        random.shuffle(train_batches)
+        total, steps = 0.0, 0
+        optimiser.zero_grad()
+        for index, (x, adj, target) in enumerate(train_batches, start=1):
             loss = loss_fn(model(x, adj), target)
-            loss.backward()
-            optimiser.step()
-            total += float(loss)
-        if epoch % max(1, args.epochs // 5) == 0 or epoch == 1:
-            model.eval()
-            with torch.no_grad():
-                val = sum(abs(float(model(x, adj)) - float(target))
-                          for x, adj, target in val_batches) / max(len(val_batches), 1)
-            print(f"epoch {epoch:4d} | train loss {total / len(train_batches):.4f} "
-                  f"| val MAE (z-scored) {val:.4f}")
+            (loss / args.batch_size).backward()
+            total += float(loss.detach())
+            steps += 1
+            if index % args.batch_size == 0:
+                optimiser.step()
+                optimiser.zero_grad()
+        optimiser.step()
+        optimiser.zero_grad()
 
-    # Report the error in logP units, which is what anyone will ask for.
-    model.eval()
-    with torch.no_grad():
-        mae_logp = sum(abs((float(model(x, adj)) * std + mean) - (float(target) * std + mean))
-                       for x, adj, target in val_batches) / max(len(val_batches), 1)
+        if epoch % max(1, args.epochs // 6) == 0 or epoch == 1:
+            validation = evaluate(model, val_batches, task, mean, std)
+            metric = (f"val acc {validation['accuracy']:.3f} auroc {validation['auroc']:.3f}"
+                      if task == "classification"
+                      else f"val MAE {validation['mae']:.3f} R2 {validation['r2']:.3f}")
+            print(f"epoch {epoch:3d}/{args.epochs} | train loss {total / steps:.4f} | {metric}")
+
+    test_metrics = evaluate(model, test_batches, task, mean, std)
+    validation_metrics = evaluate(model, val_batches, task, mean, std)
+    print(f"\ntest ({test_metrics['n']} held-out molecules): {test_metrics}")
 
     Path(args.out).parent.mkdir(parents=True, exist_ok=True)
     torch.save(model.state_dict(), args.out)
-    with open(gnn_torch.METADATA, "w", encoding="utf-8") as handle:
-        json.dump({
-            "target": "MolLogP",
-            "molecules": len(rows),
-            "train": len(train_rows),
-            "val": len(val_rows),
-            "epochs": args.epochs,
-            "hidden": args.hidden,
-            "val_mae": round(mae_logp, 4),
-            "target_mean": round(mean, 4),
-            "target_std": round(std, 4),
-        }, handle, indent=2)
-
-    print(f"val MAE {mae_logp:.3f} logP units over {len(val_rows)} held-out molecules")
-    print(f"saved {args.out} and {gnn_torch.METADATA}")
+    metadata = {
+        "dataset": provenance["name"],
+        "title": provenance.get("title"),
+        "source": provenance.get("source"),
+        "citation": provenance.get("citation"),
+        "url": provenance.get("url"),
+        "dataset_sha256": provenance.get("sha256", ""),
+        "task": task,
+        "target": provenance.get("target_label"),
+        "target_units": provenance.get("target_units", ""),
+        "molecules": len(rows),
+        "split": {"train": len(train_rows), "val": len(val_rows),
+                  "test": len(test_rows)},
+        "epochs": args.epochs,
+        "hidden": args.hidden,
+        "seed": args.seed,
+        "target_mean": round(mean, 4),
+        "target_std": round(std, 4),
+        "val": validation_metrics,
+        "test": test_metrics,
+        "trained_at": time.strftime("%Y-%m-%d %H:%M:%S"),
+        "train_seconds": round(time.time() - started, 1),
+    }
+    if task == "regression":
+        metadata["val_mae"] = validation_metrics["mae"]      # backwards compatible
+    metadata_path = gnn_torch.metadata_for(args.out)
+    metadata_path.write_text(json.dumps(metadata, indent=2) + "\n",
+                             encoding="utf-8")
+    print(f"saved {args.out} and {metadata_path}")
     return 0
 
 

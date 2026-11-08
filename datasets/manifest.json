@@ -1,0 +1,69 @@
+{
+  "datasets": [
+    {
+      "name": "esol",
+      "title": "ESOL / Delaney aqueous solubility",
+      "file": "data/datasets/esol.csv",
+      "rows": 1128,
+      "task": "regression",
+      "smiles_column": "smiles",
+      "target_column": "measured log solubility in mols per litre",
+      "target_units": "log10 mol/L",
+      "target_label": "measured log solubility",
+      "source": "MoleculeNet (DeepChem mirror of the Delaney 2004 solubility set)",
+      "url": "https://deepchemdata.s3-us-west-1.amazonaws.com/datasets/delaney-processed.csv",
+      "citation": "Delaney, J. S. (2004) ESOL: Estimating Aqueous Solubility Directly from Molecular Structure. J. Chem. Inf. Comput. Sci. 44(3):1000-1005. Packaged by Wu et al. (2018), MoleculeNet, Chem. Sci. 9:513-530.",
+      "license": "Public research data redistributed by the MoleculeNet authors; cite Delaney 2004 and Wu et al. 2018.",
+      "sha256": "8c06a76f0c6487d29ab0f903e6a7a7139f189ab3c1178f159c8be8964602f189",
+      "downloaded_at": "2026-11-08",
+      "notes": "1128 drug-like molecules with measured aqueous solubility. Ships in the repo so training is reproducible offline.",
+      "bytes": 96699
+    },
+    {
+      "name": "bace",
+      "title": "BACE-1 inhibition (MoleculeNet)",
+      "file": "data/datasets/bace.csv",
+      "rows": 1513,
+      "task": "classification",
+      "smiles_column": "smiles",
+      "target_column": "label",
+      "target_units": "0/1",
+      "target_label": "BACE-1 inhibitor class",
+      "source": "MoleculeNet (DeepChem) BACE dataset, slimmed to smiles/label/pIC50",
+      "url": "https://deepchemdata.s3-us-west-1.amazonaws.com/datasets/bace.csv",
+      "citation": "Subramanian et al. (2016) Computational modeling of beta-secretase 1 (BACE-1) inhibitors. Packaged by Wu et al. (2018), MoleculeNet, Chem. Sci. 9:513-530.",
+      "license": "Public research data redistributed by the MoleculeNet authors; cite Subramanian et al. 2016 and Wu et al. 2018.",
+      "sha256": "1b13c2a8f5b4668baf520685bd6d3cde8822d982772ce3cb8e52d9197182bcfc",
+      "downloaded_at": "2026-11-08",
+      "notes": "1513 compounds with binary BACE-1 inhibition labels. The 588 fingerprint columns of the original file were dropped; only smiles, label and pIC50 are kept.",
+      "bytes": 119021
+    },
+    {
+      "name": "qm7",
+      "title": "QM7 atomisation energies",
+      "file": "data/datasets/qm7.csv",
+      "rows": 7160,
+      "task": "regression",
+      "smiles_column": "smiles",
+      "target_column": "u0_atom",
+      "target_units": "kcal/mol",
+      "target_label": "atomisation energy",
+      "source": "MoleculeNet (DeepChem) QM7",
+      "url": "https://deepchemdata.s3-us-west-1.amazonaws.com/datasets/qm7.csv",
+      "citation": "Blum & Reymond (2009) 970 million druglike small molecules. Packaged by Wu et al. (2018), MoleculeNet, Chem. Sci. 9:513-530.",
+      "license": "Public research data redistributed by the MoleculeNet authors.",
+      "sha256": "",
+      "downloaded_at": null,
+      "notes": "Not committed (larger file). Fetch with `python scripts/fetch_datasets.py --fetch qm7`."
+    }
+  ],
+  "kaggle": {
+    "note": "Kaggle datasets are supported through the official Kaggle CLI, which needs your own API token (~/.kaggle/kaggle.json). The sandbox this repo was built in cannot reach kaggle.com, so no Kaggle data is bundled.",
+    "usage": [
+      "pip install kaggle",
+      "create an API token at https://www.kaggle.com/settings -> API -> Create New Token, save it to ~/.kaggle/kaggle.json",
+      "python scripts/fetch_datasets.py --kaggle-search chembl      # find a dataset slug",
+      "python scripts/fetch_datasets.py --kaggle owner/dataset-name --smiles-col smiles --target-col activity"
+    ]
+  }
+}

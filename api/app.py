@@ -29,6 +29,7 @@ from src.agents.workflow import run_pipeline
 from src.core.engine import engine_name
 from src.core.schemas import Hypothesis
 from src.core import tracing
+from src.tools import datasets as dataset_tools
 from src.tools import docking, drugs as drug_lookup, gnn_torch, llm, policy, qsar
 from src.tools import react_agent
 
@@ -129,6 +130,15 @@ def list_tools():
             "kg_lookup": "knowledge-graph paths between drug and target",
             "literature_search": "curated literature corpus (optionally live Europe PMC)",
         },
+    }
+
+
+@app.get("/datasets")
+def list_datasets():
+    """Every dataset the project trains on, with its provenance."""
+    return {
+        "datasets": dataset_tools.summary(),
+        "gnn_training": gnn_torch.metadata(),
     }
 
 
