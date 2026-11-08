@@ -97,6 +97,43 @@ uvicorn api.app:app --reload --port 8000
 # open http://localhost:8000
 ```
 
+### Run it live on your machine (dashboard)
+
+One command sets up a virtualenv, installs the dependencies and serves the
+interactive console at **http://127.0.0.1:8000**:
+
+```bash
+bash scripts/run_local.sh          # macOS / Linux   (bash scripts/run_local.sh 8080 for another port)
+powershell -ExecutionPolicy Bypass -File scripts\run_local.ps1   # Windows
+```
+
+Or by hand:
+
+```bash
+python -m venv .venv && source .venv/bin/activate    # Windows: .venv\Scripts\activate
+pip install -r requirements.txt
+pip install rdkit                                    # real descriptors
+pip install torch --index-url https://download.pytorch.org/whl/cpu   # trained GNN + RL policy
+uvicorn api.app:app --reload --port 8000
+```
+
+`rdkit` and `torch` are optional — without them the app still runs, using the
+graph-estimate descriptors and the fixed uncertainty penalty. The status chips in
+the header tell you which components are live.
+
+**What the console gives you** (eight tabs, all fed by the real pipeline):
+
+| Tab | What it shows |
+|---|---|
+| Verdict | Four-way verdict, uncertainty gauge, computational signals, run facts |
+| Uncertainty | The six dimensions as bars plus a radar; the model-reliability axis turns green when it is measured by MC dropout rather than assumed |
+| Tools (RL) | The tool transcript in order, with the policy badge (`rl-policy` / `deterministic`) |
+| Evidence | Every literature / graph / assay item with stance and weight, filterable by source |
+| Agent trace | All six agents and what each decided |
+| Models & DL | Checkpoint sizes, architectures, algorithms, and an **MC-dropout explorer** — type any SMILES and see the predicted logP, the dropout spread and the derived epistemic uncertainty |
+| Calibration | Balanced accuracy, false-support rate, AUROC, Brier/ECE, abstention, and the per-case table; "Recompute" re-runs the study live |
+| Compare | Paste several hypotheses (`drug, target, disease` per line) and diff their verdicts side by side |
+
 ### The demo cases
 
 | # | Hypothesis | Expected |
@@ -186,8 +223,12 @@ medscriptai-onco/
 ├── main.py                     # CLI entry point (--demo, --drug/--target, --json)
 ├── config.py                   # every setting in one place, all env-optional
 ├── api/
-│   ├── app.py                  # FastAPI: /health /drugs /analyze
-│   └── static/index.html       # single-page UI (no build step)
+│   ├── app.py                  # FastAPI: /health /models /analyze /uncertainty
+│   │                           #          /compare /calibration
+│   └── static/index.html       # interactive dashboard (no build step)
+├── scripts/
+│   ├── run_local.sh            # one-command local server (macOS/Linux)
+│   └── run_local.ps1           # one-command local server (Windows)
 ├── src/
 │   ├── agents/
 │   │   ├── planner.py          # 1. hypothesis planner
@@ -228,7 +269,7 @@ medscriptai-onco/
 │   └── README.md               # the fine-tuning plan, step by step
 ├── data/                       # seed knowledge: targets, drugs, assays, triples, literature
 ├── evaluation/                 # calibration study + metrics
-├── tests/                      # 86 pytest tests, run on both engines
+├── tests/                      # 96 pytest tests, run on both engines
 ├── docker-compose.yml          # local Neo4j + loader
 ├── .github/workflows/ci.yml    # tests on 3.11 + 3.12, both engines
 └── Dockerfile
@@ -322,6 +363,27 @@ curl -X POST http://localhost:8000/analyze \
 
 ---
 
+## The learned components, and the algorithms behind them
+
+| Component | Algorithm | Trained on | What it buys |
+|---|---|---|---|
+| Molecular GNN | 2-layer message-passing GNN (mean aggregation, tanh, mean pooling) + MLP head, Adam, MSE | 33 molecules, MolLogP proxy task, val MAE 0.55 | A learned molecular embedding, used by the affinity readout |
+| Uncertainty | **Monte-Carlo dropout** — 25 seeded stochastic forward passes; std ÷ training spread → `model_reliability` | the same checkpoint | Replaces the hardcoded 0.45 penalty with a measured number (ethanol 0.33, benzene 0.06) |
+| Tool policy | **REINFORCE** (policy gradient) with a moving-average baseline; 11-feature state → masked softmax over 5 tools | 200–300 episodes against the live tool environment | Learns *which* evidence to gather instead of a hardcoded order; mean return 0.85 |
+| Verdict writer | **SFT** (LoRA, `--tiny` smoke mode) then **DPO** (reference-model preference objective, β = 0.1) | reports → chosen structured verdict vs. rejected collapsed-confidence answer | Teaches the four-way format and the abstention habit |
+| Docking | Conformer generation (ETKDG) + **MMFF94** minimisation + range-based complementarity scoring | none (physics, not learned) | Real ligand energetics; `vina_adapter.py` upgrades to AutoDock Vina given structures |
+
+Reproduce any of it:
+
+```bash
+python training/train_gnn.py --epochs 400      # GNN + MC-dropout checkpoint
+python training/train_policy.py --episodes 300 # REINFORCE tool policy
+python training/build_dataset.py reports/*.json --out training/data
+python training/sft_train.py --tiny --data training/data/sft.jsonl
+python training/dpo_train.py --tiny --data training/data/dpo.jsonl
+python evaluation/run_calibration.py           # the study below
+```
+
 ## Calibration study
 
 `evaluation/` answers the question the whole design rests on: *does a low
@@ -407,7 +469,7 @@ can say `ABSTAIN`.
 ## Tests
 
 ```bash
-pytest -q                        # 86 tests, no network, no keys
+pytest -q                        # 96 tests, no network, no keys
 USE_LANGGRAPH=1 pytest -q        # same suite on the LangGraph engine
 python main.py --demo
 ```

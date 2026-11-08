@@ -1,164 +1,717 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>MEDSCRIPTAI-ONCO · hypothesis validator</title>
-  <style>
-    :root {
-      --bg: #0b1220; --panel: #131c2e; --line: #24314a; --text: #e6ecf5;
-      --muted: #93a2bd; --accent: #4da3ff;
-      --ok: #35c98a; --bad: #ff6b6b; --warn: #f0b429; --grey: #8b9bb5;
-    }
-    * { box-sizing: border-box; }
-    body {
-      margin: 0; background: var(--bg); color: var(--text);
-      font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-      line-height: 1.5;
-    }
-    header { padding: 28px 32px 12px; border-bottom: 1px solid var(--line); }
-    h1 { margin: 0 0 4px; font-size: 22px; letter-spacing: -0.01em; }
-    header p { margin: 0; color: var(--muted); font-size: 14px; }
-    main { display: grid; grid-template-columns: 340px 1fr; gap: 24px; padding: 24px 32px 60px; }
-    @media (max-width: 900px) { main { grid-template-columns: 1fr; } }
-    form, .card {
-      background: var(--panel); border: 1px solid var(--line);
-      border-radius: 12px; padding: 18px;
-    }
-    label { display: block; font-size: 12px; text-transform: uppercase;
-            letter-spacing: 0.08em; color: var(--muted); margin: 14px 0 6px; }
-    input {
-      width: 100%; padding: 10px 12px; border-radius: 8px;
-      border: 1px solid var(--line); background: #0e1727; color: var(--text);
-      font-size: 14px;
-    }
-    button {
-      margin-top: 18px; width: 100%; padding: 11px 14px; border: 0;
-      border-radius: 8px; background: var(--accent); color: #04121f;
-      font-weight: 600; font-size: 14px; cursor: pointer;
-    }
-    button:disabled { opacity: 0.6; cursor: progress; }
-    .hint { color: var(--muted); font-size: 12px; margin-top: 10px; }
-    .verdict { display: flex; align-items: baseline; gap: 12px; }
-    .badge {
-      font-size: 13px; font-weight: 700; letter-spacing: 0.06em;
-      padding: 5px 12px; border-radius: 999px; text-transform: uppercase;
-    }
-    .SUPPORTED { background: rgba(53,201,138,0.16); color: var(--ok); }
-    .CONTRADICTED { background: rgba(255,107,107,0.16); color: var(--bad); }
-    .UNCERTAIN { background: rgba(240,180,41,0.16); color: var(--warn); }
-    .ABSTAIN { background: rgba(139,155,181,0.16); color: var(--grey); }
-    h2 { font-size: 13px; text-transform: uppercase; letter-spacing: 0.09em;
-         color: var(--muted); margin: 24px 0 10px; }
-    .bar-row { display: grid; grid-template-columns: 180px 1fr 48px; gap: 10px;
-               align-items: center; font-size: 13px; margin-bottom: 6px; }
-    .track { height: 8px; background: #0e1727; border-radius: 999px; overflow: hidden; }
-    .fill { height: 100%; background: var(--accent); }
-    ul { margin: 0; padding-left: 18px; font-size: 13.5px; }
-    li { margin-bottom: 6px; }
-    .tag { font-size: 11px; padding: 1px 7px; border-radius: 5px;
-           border: 1px solid var(--line); color: var(--muted); margin-right: 6px; }
-    .pos { color: var(--ok); } .neg { color: var(--bad); } .neu { color: var(--grey); }
-    code { font-size: 12px; color: var(--muted); }
-  </style>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>MEDSCRIPTAI-ONCO · hypothesis validation console</title>
+<style>
+  :root {
+    --bg: #070d16;
+    --bg-soft: #0d1624;
+    --panel: #101c2d;
+    --panel-2: #14243a;
+    --line: #22334d;
+    --text: #e8eef7;
+    --muted: #8fa3bf;
+    --accent: #4da3ff;
+    --accent-2: #7c5cff;
+    --ok: #35c98a;
+    --bad: #ff6b6b;
+    --warn: #f0b429;
+    --grey: #8b9bb5;
+    --mono: ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--bg); color: var(--text);
+    font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    line-height: 1.55; }
+  body::before {
+    content: ""; position: fixed; inset: 0; pointer-events: none; z-index: 0;
+    background:
+      radial-gradient(900px 420px at 12% -10%, rgba(77,163,255,0.14), transparent 60%),
+      radial-gradient(700px 380px at 92% 0%, rgba(124,92,255,0.12), transparent 60%);
+  }
+  .wrap { position: relative; z-index: 1; max-width: 1440px; margin: 0 auto; padding: 0 22px 70px; }
+
+  header { padding: 26px 0 16px; display: flex; flex-wrap: wrap; gap: 16px;
+    align-items: flex-end; justify-content: space-between; border-bottom: 1px solid var(--line); }
+  h1 { margin: 0; font-size: 22px; letter-spacing: -0.02em; }
+  h1 span { color: var(--accent); }
+  .sub { margin: 3px 0 0; color: var(--muted); font-size: 13.5px; }
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; }
+  .chip { font-size: 11.5px; padding: 5px 10px; border-radius: 999px;
+    border: 1px solid var(--line); background: var(--bg-soft); color: var(--muted); }
+  .chip b { color: var(--text); font-weight: 600; }
+  .chip.live b { color: var(--ok); }
+  .chip.off b { color: var(--warn); }
+
+  .layout { display: grid; grid-template-columns: 336px 1fr; gap: 22px; margin-top: 22px; }
+  @media (max-width: 980px) { .layout { grid-template-columns: 1fr; } }
+
+  .card { background: linear-gradient(180deg, var(--panel), var(--bg-soft));
+    border: 1px solid var(--line); border-radius: 14px; padding: 16px; }
+  .card h3 { margin: 0 0 10px; font-size: 12px; letter-spacing: 0.09em;
+    text-transform: uppercase; color: var(--muted); font-weight: 600; }
+
+  label { display: block; font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase;
+    color: var(--muted); margin: 12px 0 5px; }
+  input, select, textarea { width: 100%; padding: 10px 12px; border-radius: 9px;
+    border: 1px solid var(--line); background: #0b1523; color: var(--text);
+    font-size: 13.5px; font-family: inherit; }
+  input:focus, select:focus, textarea:focus { outline: 2px solid rgba(77,163,255,0.35);
+    border-color: var(--accent); }
+  textarea { font-family: var(--mono); font-size: 12.5px; min-height: 96px; }
+  button { font-family: inherit; cursor: pointer; border: 0; border-radius: 9px;
+    font-weight: 600; font-size: 13.5px; padding: 11px 16px; }
+  .primary { width: 100%; margin-top: 16px; color: #04121f;
+    background: linear-gradient(135deg, var(--accent), #6ee7ff); }
+  .primary:disabled { opacity: 0.55; cursor: progress; }
+  .ghost { background: transparent; border: 1px solid var(--line); color: var(--text);
+    font-size: 12px; padding: 7px 12px; }
+  .ghost:hover { border-color: var(--accent); }
+  .samples { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 12px; }
+  .samples .ghost { font-size: 11.5px; padding: 6px 10px; color: var(--muted); }
+
+  nav.tabs { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 14px; }
+  nav.tabs button { background: var(--bg-soft); border: 1px solid var(--line);
+    color: var(--muted); font-size: 12.5px; padding: 8px 14px; border-radius: 999px; }
+  nav.tabs button.active { color: #04121f; border-color: transparent;
+    background: linear-gradient(135deg, var(--accent), #6ee7ff); }
+  .panel { display: none; }
+  .panel.active { display: block; animation: fade 0.25s ease; }
+  @keyframes fade { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+
+  .hero { display: flex; flex-wrap: wrap; gap: 18px; align-items: center;
+    justify-content: space-between; }
+  .badge { font-size: 15px; font-weight: 800; letter-spacing: 0.1em;
+    padding: 9px 18px; border-radius: 10px; text-transform: uppercase; }
+  .SUPPORTED { background: rgba(53,201,138,0.14); color: var(--ok);
+    border: 1px solid rgba(53,201,138,0.35); }
+  .CONTRADICTED { background: rgba(255,107,107,0.14); color: var(--bad);
+    border: 1px solid rgba(255,107,107,0.35); }
+  .UNCERTAIN { background: rgba(240,180,41,0.14); color: var(--warn);
+    border: 1px solid rgba(240,180,41,0.35); }
+  .ABSTAIN { background: rgba(139,155,181,0.14); color: var(--grey);
+    border: 1px solid rgba(139,155,181,0.35); }
+  .SKIPPED { background: rgba(139,155,181,0.1); color: var(--grey); }
+  .gauge { min-width: 210px; flex: 1; }
+  .gauge .track { height: 10px; border-radius: 999px; background: #0a1421;
+    border: 1px solid var(--line); overflow: hidden; }
+  .gauge .fill { height: 100%; width: 0; border-radius: 999px;
+    background: linear-gradient(90deg, var(--ok), var(--warn), var(--bad));
+    transition: width 0.6s cubic-bezier(.2,.8,.2,1); }
+  .gauge .row { display: flex; justify-content: space-between; font-size: 12px;
+    color: var(--muted); margin-bottom: 6px; }
+  .rationale { margin: 16px 0 0; font-size: 14.5px; }
+
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  @media (max-width: 900px) { .grid2 { grid-template-columns: 1fr; } }
+
+  .dim { display: grid; grid-template-columns: 168px 1fr 46px; gap: 10px;
+    align-items: center; font-size: 12.5px; margin-bottom: 7px; }
+  .dim .track { height: 8px; background: #0a1421; border-radius: 999px; overflow: hidden;
+    border: 1px solid var(--line); }
+  .dim .fill { height: 100%; width: 0; transition: width 0.7s cubic-bezier(.2,.8,.2,1);
+    background: linear-gradient(90deg, var(--accent), var(--accent-2)); }
+  .dim.measured .fill { background: linear-gradient(90deg, var(--ok), var(--accent)); }
+  .dim .val { font-family: var(--mono); text-align: right; color: var(--muted); }
+  .dim .name { color: var(--muted); }
+  .dim .name b { color: var(--text); font-weight: 600; }
+
+  table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+  th { text-align: left; font-size: 11px; letter-spacing: 0.07em; text-transform: uppercase;
+    color: var(--muted); padding: 8px 8px; border-bottom: 1px solid var(--line); font-weight: 600; }
+  td { padding: 8px; border-bottom: 1px solid rgba(34,51,77,0.55); vertical-align: top; }
+  tr:hover td { background: rgba(77,163,255,0.04); }
+  .mono { font-family: var(--mono); font-size: 12px; }
+  .pos { color: var(--ok); } .neg { color: var(--bad); } .neu { color: var(--grey); }
+
+  .timeline { position: relative; padding-left: 20px; }
+  .timeline::before { content: ""; position: absolute; left: 5px; top: 4px; bottom: 4px;
+    width: 2px; background: linear-gradient(180deg, var(--accent), var(--accent-2)); opacity: 0.5; }
+  .step { position: relative; margin-bottom: 12px; }
+  .step::before { content: ""; position: absolute; left: -19px; top: 6px; width: 9px; height: 9px;
+    border-radius: 50%; background: var(--accent); box-shadow: 0 0 0 3px rgba(77,163,255,0.15); }
+  .step.rl::before { background: var(--accent-2); box-shadow: 0 0 0 3px rgba(124,92,255,0.18); }
+  .step .tool { font-family: var(--mono); font-size: 12.5px; color: var(--accent); }
+  .step .obs { font-size: 12.5px; color: var(--muted); }
+
+  .kpi { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }
+  .kpi .box { background: var(--panel-2); border: 1px solid var(--line); border-radius: 11px;
+    padding: 12px 14px; }
+  .kpi .box .label { font-size: 10.5px; letter-spacing: 0.07em; text-transform: uppercase;
+    color: var(--muted); }
+  .kpi .box .value { font-size: 21px; font-weight: 700; margin-top: 3px;
+    font-family: var(--mono); }
+  .kpi .box .hint { font-size: 11px; color: var(--muted); margin-top: 2px; }
+
+  .empty { color: var(--muted); font-size: 13px; padding: 26px 8px; text-align: center; }
+  .note { font-size: 11.5px; color: var(--muted); margin-top: 10px; }
+  .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .spacer { flex: 1; }
+  .tag { font-size: 10.5px; padding: 2px 7px; border-radius: 5px; border: 1px solid var(--line);
+    color: var(--muted); font-family: var(--mono); }
+  svg.radar { width: 100%; max-width: 340px; height: auto; }
+  .loading { display: inline-block; width: 13px; height: 13px; border-radius: 50%;
+    border: 2px solid rgba(255,255,255,0.25); border-top-color: var(--accent);
+    animation: spin 0.7s linear infinite; vertical-align: -2px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  footer { margin-top: 34px; color: var(--muted); font-size: 12px;
+    border-top: 1px solid var(--line); padding-top: 14px; }
+</style>
 </head>
 <body>
+<div class="wrap">
   <header>
-    <h1>MEDSCRIPTAI-ONCO</h1>
-    <p>Contradiction-aware validation of a drug–target hypothesis. Six agents, one evidence trail.</p>
+    <div>
+      <h1>MEDSCRIPTAI<span>·</span>ONCO</h1>
+      <p class="sub">Six agents, a trained GNN, an RL tool policy — and an honest four-way verdict.</p>
+    </div>
+    <div class="chips" id="status"><span class="chip">loading status…</span></div>
   </header>
 
-  <main>
-    <form id="form">
-      <label for="drug">Compound</label>
-      <input id="drug" value="SHP099" required />
-      <label for="target">Target</label>
-      <input id="target" value="SHP2" required />
-      <label for="disease">Disease context</label>
-      <input id="disease" value="KRAS-mutant NSCLC" />
-      <label for="smiles">SMILES (optional)</label>
-      <input id="smiles" placeholder="leave blank to use the seed table" />
-      <button id="go" type="submit">Validate hypothesis</button>
-      <p class="hint">Try RMC-4550 / SHP2 to see a contradicted call, or any unknown
-        compound to see an abstention.</p>
-    </form>
+  <div class="layout">
+    <aside>
+      <div class="card">
+        <h3>Hypothesis</h3>
+        <label for="drug">Compound</label>
+        <input id="drug" list="druglist" value="SHP099" />
+        <datalist id="druglist"></datalist>
 
-    <section id="result" class="card">
-      <p class="hint">Results appear here. The framework answers Supported,
-        Contradicted, Uncertain or Abstain — never a bare confidence number.</p>
-    </section>
-  </main>
+        <label for="target">Target</label>
+        <input id="target" list="targetlist" value="SHP2" />
+        <datalist id="targetlist"></datalist>
+
+        <label for="disease">Disease context</label>
+        <input id="disease" value="KRAS-mutant NSCLC" />
+
+        <label for="smiles">SMILES override</label>
+        <input id="smiles" placeholder="leave blank to use the seed table" />
+
+        <button class="primary" id="run">Run the pipeline</button>
+        <div class="samples" id="samples"></div>
+      </div>
+
+      <div class="card" style="margin-top:16px">
+        <h3>What to look for</h3>
+        <p class="note" style="margin:0">
+          <b>Uncertainty</b> is six dimensions, not one number — check which one is
+          driving the verdict. <b>Tools (RL)</b> shows the policy the agent learned.
+          <b>Models</b> shows what is actually trained, and <b>Calibration</b> shows
+          whether low uncertainty means correct.
+        </p>
+      </div>
+    </aside>
+
+    <main>
+      <nav class="tabs" id="tabs">
+        <button data-panel="verdict" class="active">Verdict</button>
+        <button data-panel="uncertainty">Uncertainty</button>
+        <button data-panel="tools">Tools (RL)</button>
+        <button data-panel="evidence">Evidence</button>
+        <button data-panel="trace">Agent trace</button>
+        <button data-panel="models">Models &amp; DL</button>
+        <button data-panel="calibration">Calibration</button>
+        <button data-panel="compare">Compare</button>
+      </nav>
+
+      <section class="panel active" id="panel-verdict">
+        <div class="card" id="verdict-card">
+          <div class="empty">Run a hypothesis to see the verdict, the uncertainty
+            decomposition and the evidence trail.</div>
+        </div>
+      </section>
+
+      <section class="panel" id="panel-uncertainty">
+        <div class="grid2">
+          <div class="card"><h3>Six-dimension uncertainty</h3>
+            <div id="dims"><div class="empty">No run yet.</div></div>
+            <p class="note">0 = resolved, 1 = unresolved. <span class="pos">Green</span>
+              bars are measured from the trained model (MC dropout); blue ones are
+              computed from evidence.</p>
+          </div>
+          <div class="card"><h3>Radar</h3><div id="radar"></div>
+            <div class="note" id="radar-note"></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel" id="panel-tools">
+        <div class="card">
+          <div class="row"><h3 style="margin:0">Tool orchestration</h3><div class="spacer"></div>
+            <span class="tag" id="tool-mode">—</span></div>
+          <div id="tools-body"><div class="empty">No run yet.</div></div>
+          <p class="note">The policy picks the next tool from the transcript so far.
+            Reward during training: +1 for reaching both a computational and an
+            evidence signal, +0.3 × mean computational score, −0.1 per call.</p>
+        </div>
+      </section>
+
+      <section class="panel" id="panel-evidence">
+        <div class="card">
+          <div class="row"><h3 style="margin:0">Evidence</h3><div class="spacer"></div>
+            <select id="evidence-filter" style="width:auto">
+              <option value="all">all sources</option>
+              <option value="literature">literature</option>
+              <option value="knowledge_graph">knowledge graph</option>
+              <option value="assay">assay</option>
+            </select>
+          </div>
+          <div id="evidence-body"><div class="empty">No run yet.</div></div>
+        </div>
+      </section>
+
+      <section class="panel" id="panel-trace">
+        <div class="card"><h3>Agent trace</h3>
+          <div id="trace-body"><div class="empty">No run yet.</div></div></div>
+      </section>
+
+      <section class="panel" id="panel-models">
+        <div class="grid2">
+          <div class="card"><h3>Trained components</h3>
+            <div id="models-body"><div class="empty">Loading…</div></div></div>
+          <div class="card"><h3>MC-dropout explorer</h3>
+            <label for="mc-smiles">SMILES</label>
+            <input id="mc-smiles" value="Nc1nc(N2CCNCC2)c2cc(Cl)ccc2n1" />
+            <div class="row" style="margin-top:10px">
+              <button class="ghost" id="mc-run">Estimate uncertainty</button>
+              <span class="note" id="mc-status"></span>
+            </div>
+            <div id="mc-body" style="margin-top:12px"></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel" id="panel-calibration">
+        <div class="card">
+          <div class="row"><h3 style="margin:0">Calibration study</h3><div class="spacer"></div>
+            <button class="ghost" id="cal-refresh">Recompute</button></div>
+          <div id="cal-body"><div class="empty">Loading…</div></div>
+        </div>
+      </section>
+
+      <section class="panel" id="panel-compare">
+        <div class="card">
+          <h3>Compare hypotheses</h3>
+          <label for="compare-input">One per line: drug, target, disease</label>
+          <textarea id="compare-input">SHP099, SHP2, KRAS-mutant NSCLC
+SHP099, EGFR, KRAS-mutant NSCLC
+Adagrasib, KRAS_G12C, KRAS-mutant NSCLC
+RMC-4550, SHP2, KRAS-mutant CRC
+CompoundX, SHP2, pancreatic cancer</textarea>
+          <div class="row" style="margin-top:10px">
+            <button class="ghost" id="compare-run">Compare</button>
+            <span class="note" id="compare-status"></span>
+          </div>
+          <div id="compare-body" style="margin-top:12px"></div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <footer>
+    Runs locally with no API keys: rule-based reasoning, a bundled knowledge graph and a
+    curated literature corpus. Add <span class="mono">SARVAM_API_KEY</span> for LLM-written
+    reasoning. Prototype models are trained on proxy tasks — see the README.
+  </footer>
+</div>
 
 <script>
-const result = document.getElementById("result");
-const form = document.getElementById("form");
-const go = document.getElementById("go");
+const $ = (id) => document.getElementById(id);
+const state = { report: null, models: null };
 
-function bar(name, value) {
-  const pct = Math.round(value * 100);
-  return `<div class="bar-row"><span>${name.replaceAll("_", " ")}</span>
-    <span class="track"><span class="fill" style="width:${pct}%"></span></span>
-    <span>${value.toFixed(2)}</span></div>`;
+async function api(path, options) {
+  const response = await fetch(path, options);
+  const body = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(body.detail || `HTTP ${response.status}`);
+  return body;
 }
 
-form.addEventListener("submit", async (event) => {
-  event.preventDefault();
-  go.disabled = true;
-  result.innerHTML = "<p class='hint'>Running the agent pipeline…</p>";
-
-  const body = {
-    drug: document.getElementById("drug").value.trim(),
-    target: document.getElementById("target").value.trim(),
-    disease: document.getElementById("disease").value.trim(),
-    smiles: document.getElementById("smiles").value.trim(),
-  };
-
+/* ------------------------------------------------------------------ status */
+async function loadStatus() {
   try {
-    const response = await fetch("/analyze", {
+    const health = await api("/health");
+    const chips = [
+      `<span class="chip ${health.engine === "langgraph" ? "live" : ""}">engine <b>${health.engine}</b></span>`,
+      `<span class="chip ${health.gnn.includes("trained") ? "live" : "off"}">GNN <b>${health.gnn.includes("trained") ? "trained" : "untrained"}</b></span>`,
+      `<span class="chip ${health.policy.includes("REINFORCE") ? "live" : "off"}">policy <b>${health.policy.includes("REINFORCE") ? "RL" : "deterministic"}</b></span>`,
+      `<span class="chip">docking <b>${health.docking}</b></span>`,
+      `<span class="chip ${health.llm === "sarvam" ? "live" : "off"}">llm <b>${health.llm === "sarvam" ? "sarvam" : "offline"}</b></span>`,
+    ];
+    $("status").innerHTML = chips.join("");
+  } catch (error) {
+    $("status").innerHTML = `<span class="chip off">backend unreachable: ${error.message}</span>`;
+  }
+}
+
+/* --------------------------------------------------------------- data loads */
+async function loadOptions() {
+  try {
+    const [drugs, targets] = await Promise.all([api("/drugs"), api("/targets")]);
+    $("druglist").innerHTML = Object.keys(drugs).map((n) => `<option value="${n}">`).join("");
+    $("targetlist").innerHTML = Object.keys(targets).map((n) => `<option value="${n}">`).join("");
+    const samples = [
+      ["SHP099", "SHP2", "KRAS-mutant NSCLC"],
+      ["TNO155", "SHP2", "advanced solid tumours"],
+      ["RMC-4550", "SHP2", "KRAS-mutant CRC"],
+      ["Adagrasib", "KRAS_G12C", "KRAS-mutant NSCLC"],
+      ["Osimertinib", "EGFR", "EGFR-mutant NSCLC"],
+      ["CompoundX", "SHP2", "pancreatic cancer"],
+    ];
+    $("samples").innerHTML = samples.map(([d, t, dis]) =>
+      `<button class="ghost" data-d="${d}" data-t="${t}" data-dis="${dis}">${d} → ${t}</button>`
+    ).join("");
+    $("samples").querySelectorAll("button").forEach((button) => {
+      button.onclick = () => {
+        $("drug").value = button.dataset.d;
+        $("target").value = button.dataset.t;
+        $("disease").value = button.dataset.dis;
+        $("smiles").value = "";
+        runPipeline();
+      };
+    });
+  } catch (error) { /* status chip already reports it */ }
+}
+
+async function loadModels() {
+  try {
+    const models = await api("/models");
+    state.models = models;
+    const gnn = models.gnn, policy = models.policy, dock = models.docking;
+    $("models-body").innerHTML = `
+      <div class="kpi">
+        <div class="box"><div class="label">GNN checkpoint</div>
+          <div class="value">${(gnn.checkpoint_bytes / 1024).toFixed(0)} KB</div>
+          <div class="hint">${gnn.metadata.target || "—"} · val MAE ${gnn.metadata.val_mae ?? "—"}</div></div>
+        <div class="box"><div class="label">RL policy</div>
+          <div class="value">${(policy.checkpoint_bytes / 1024).toFixed(1)} KB</div>
+          <div class="hint">${policy.metadata.episodes || 0} episodes · return ${policy.metadata.mean_return ?? "—"}</div></div>
+        <div class="box"><div class="label">Docking</div>
+          <div class="value" style="font-size:15px">${dock.engine}</div>
+          <div class="hint">vina: ${dock.vina}</div></div>
+      </div>
+      <table style="margin-top:14px">
+        <tr><th>Component</th><th>Architecture / algorithm</th></tr>
+        <tr><td>GNN</td><td>${gnn.architecture}</td></tr>
+        <tr><td>Uncertainty</td><td>${gnn.uncertainty_method}</td></tr>
+        <tr><td>Tool policy</td><td>${policy.architecture} · ${policy.algorithm}</td></tr>
+      </table>
+      <p class="note">The GNN is trained on a proxy property (MolLogP) over 33 molecules —
+        its embedding and its dropout spread are real, its affinity prediction is not.
+        The policy is trained on the seed corpus; both ship as checkpoints in <span class="mono">models/</span>.</p>`;
+  } catch (error) {
+    $("models-body").innerHTML = `<div class="empty">${error.message}</div>`;
+  }
+}
+
+/* ------------------------------------------------------------- main pipeline */
+async function runPipeline() {
+  const button = $("run");
+  button.disabled = true;
+  button.innerHTML = `<span class="loading"></span> running six agents…`;
+  try {
+    const report = await api("/analyze", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
+      body: JSON.stringify({
+        drug: $("drug").value.trim(),
+        target: $("target").value.trim(),
+        disease: $("disease").value.trim(),
+        smiles: $("smiles").value.trim(),
+      }),
     });
-    const data = await response.json();
-    if (!response.ok) throw new Error(data.detail || "request failed");
-
-    const evidence = data.evidence.map((item) => {
-      const cls = item.polarity > 0 ? "pos" : item.polarity < 0 ? "neg" : "neu";
-      const sign = item.polarity > 0 ? "supports" : item.polarity < 0 ? "contradicts" : "neutral";
-      return `<li><span class="tag">${item.source}</span>
-        <span class="${cls}">${sign}</span> · ${item.claim.slice(0, 190)}</li>`;
-    }).join("") || "<li>No evidence retrieved.</li>";
-
-    const computations = data.computations.map((item) =>
-      `<li><span class="tag">${item.name}</span> score ${item.score.toFixed(2)} · ${item.detail}</li>`
-    ).join("") || "<li>No in-silico signals (no SMILES).</li>";
-
-    const trace = data.trace.map((step) =>
-      `<li><span class="tag">${step.agent}</span>${step.message}</li>`).join("");
-
-    const abstain = data.abstain_reasons.length
-      ? `<h2>Abstain criteria triggered</h2><ul>${data.abstain_reasons.map(r => `<li>${r}</li>`).join("")}</ul>`
-      : "";
-
-    result.innerHTML = `
-      <div class="verdict">
-        <span class="badge ${data.verdict}">${data.verdict}</span>
-        <span class="hint">overall uncertainty ${data.overall_uncertainty.toFixed(2)} ·
-          dominant: ${data.dominant_dimension.replaceAll("_", " ")}</span>
-      </div>
-      <p>${data.rationale}</p>
-      <h2>Uncertainty vector</h2>
-      ${Object.entries(data.uncertainty).map(([k, v]) => bar(k, v)).join("")}
-      <h2>Computational signals</h2><ul>${computations}</ul>
-      <h2>Evidence (${data.evidence.length})</h2><ul>${evidence}</ul>
-      ${abstain}
-      <h2>Agent trace</h2><ul>${trace}</ul>`;
+    state.report = report;
+    renderVerdict(report);
+    renderUncertainty(report);
+    renderTools(report);
+    renderEvidence(report);
+    renderTrace(report);
+    selectTab("verdict");
   } catch (error) {
-    result.innerHTML = `<p class="neg">${error.message}</p>`;
+    $("verdict-card").innerHTML = `<div class="empty neg">${error.message}</div>`;
   } finally {
-    go.disabled = false;
+    button.disabled = false;
+    button.textContent = "Run the pipeline";
   }
+}
+
+/* ------------------------------------------------------------------ renders */
+function renderVerdict(report) {
+  const uncertainty = report.overall_uncertainty;
+  const pct = Math.round(uncertainty * 100);
+  const computations = (report.computations || []).map((item) => `
+    <tr><td>${item.name}</td><td class="mono">${item.score.toFixed(2)}</td>
+    <td class="note" style="margin:0">${item.detail}</td></tr>`).join("");
+
+  $("verdict-card").innerHTML = `
+    <div class="hero">
+      <div>
+        <div class="row" style="gap:12px">
+          <span class="badge ${report.verdict}">${report.verdict}</span>
+          <span class="note" style="margin:0">${report.hypothesis.drug} →
+            ${report.hypothesis.target}${report.hypothesis.disease ? " · " + report.hypothesis.disease : ""}</span>
+        </div>
+        <p class="rationale">${report.rationale}</p>
+      </div>
+      <div class="gauge">
+        <div class="row"><span>overall uncertainty</span><span class="mono">${uncertainty.toFixed(2)}</span></div>
+        <div class="track"><div class="fill" style="width:${pct}%"></div></div>
+        <div class="row" style="margin-top:6px">
+          <span>support ${Math.round(report.support_score * 100)}%</span>
+          <span>dominant: ${report.dominant_dimension.replaceAll("_", " ")}</span>
+        </div>
+      </div>
+    </div>
+    <div class="grid2" style="margin-top:18px">
+      <div>
+        <h3>Computational signals</h3>
+        <table>${computations || "<tr><td class='note'>no SMILES supplied</td></tr>"}</table>
+      </div>
+      <div>
+        <h3>Run facts</h3>
+        <table>
+          <tr><td>engine</td><td class="mono">${report.engine}</td></tr>
+          <tr><td>tool policy</td><td class="mono">${report.tool_mode}</td></tr>
+          <tr><td>evidence items</td><td class="mono">${report.evidence.length}</td></tr>
+          <tr><td>abstain criteria</td><td class="mono">${report.abstain_reasons.length
+            ? report.abstain_reasons.length + " triggered" : "none"}</td></tr>
+        </table>
+        ${report.abstain_reasons.length ? `<p class="note">${report.abstain_reasons.join("<br>")}</p>` : ""}
+      </div>
+    </div>`;
+}
+
+function renderUncertainty(report) {
+  const dims = Object.entries(report.uncertainty);
+  const measured = dims.some(([key, value]) =>
+    key === "model_reliability" && Math.abs(value - 0.45) > 1e-9);
+
+  $("dims").innerHTML = dims.map(([key, value]) => `
+    <div class="dim ${key === "model_reliability" && measured ? "measured" : ""}">
+      <span class="name">${key.replaceAll("_", " ")}</span>
+      <span class="track"><span class="fill" style="width:${Math.round(value * 100)}%"></span></span>
+      <span class="val">${value.toFixed(2)}</span>
+    </div>`).join("");
+
+  const size = 300, centre = size / 2, radius = 108;
+  const points = dims.map(([, value], index) => {
+    const angle = (Math.PI * 2 * index) / dims.length - Math.PI / 2;
+    const r = radius * Math.max(0.06, value);
+    return [centre + r * Math.cos(angle), centre + r * Math.sin(angle)];
+  });
+  const polygon = points.map(([x, y]) => `${x.toFixed(1)},${y.toFixed(1)}`).join(" ");
+  const rings = [0.25, 0.5, 0.75, 1].map((fraction) => {
+    const pts = dims.map((_, index) => {
+      const angle = (Math.PI * 2 * index) / dims.length - Math.PI / 2;
+      return `${(centre + radius * fraction * Math.cos(angle)).toFixed(1)},` +
+             `${(centre + radius * fraction * Math.sin(angle)).toFixed(1)}`;
+    }).join(" ");
+    return `<polygon points="${pts}" fill="none" stroke="#22334d" stroke-width="1"/>`;
+  }).join("");
+  const labels = dims.map(([key], index) => {
+    const angle = (Math.PI * 2 * index) / dims.length - Math.PI / 2;
+    const x = centre + (radius + 26) * Math.cos(angle);
+    const y = centre + (radius + 26) * Math.sin(angle);
+    const short = key.split("_").map((w) => w.slice(0, 4)).join(" ");
+    return `<text x="${x.toFixed(1)}" y="${y.toFixed(1)}" fill="#8fa3bf" font-size="9"
+      text-anchor="middle" dominant-baseline="middle">${short}</text>`;
+  }).join("");
+
+  $("radar").innerHTML = `<svg class="radar" viewBox="0 0 ${size} ${size}">
+    ${rings}${labels}
+    <polygon points="${polygon}" fill="rgba(77,163,255,0.22)" stroke="#4da3ff" stroke-width="2"/>
+  </svg>`;
+  $("radar-note").textContent = measured
+    ? "model reliability is measured from MC-dropout, not assumed."
+    : "no trained checkpoint loaded — model reliability falls back to a fixed penalty.";
+}
+
+function renderTools(report) {
+  const steps = report.tool_calls || [];
+  $("tool-mode").textContent = report.tool_mode || "deterministic";
+  if (!steps.length) {
+    $("tools-body").innerHTML = `<div class="empty">No tool calls — no SMILES was supplied.</div>`;
+    return;
+  }
+  $("tools-body").innerHTML = `<div class="timeline">` + steps.map((step, index) => `
+    <div class="step ${report.tool_mode === "rl-policy" ? "rl" : ""}">
+      <div class="tool">${index + 1}. ${step.tool} ${step.ok ? "" : "⚠"}</div>
+      <div class="obs">${(step.observation || "").slice(0, 240)}</div>
+    </div>`).join("") + `</div>`;
+}
+
+function renderEvidence(report) {
+  const filter = $("evidence-filter").value;
+  const items = (report.evidence || []).filter((item) =>
+    filter === "all" || item.source === filter);
+
+  $("evidence-body").innerHTML = items.length ? `<table>
+    <tr><th>source</th><th>stance</th><th>weight</th><th>claim</th></tr>
+    ${items.map((item) => {
+      const cls = item.polarity > 0 ? "pos" : item.polarity < 0 ? "neg" : "neu";
+      const word = item.polarity > 0 ? "supports" : item.polarity < 0 ? "contradicts" : "neutral";
+      return `<tr><td><span class="tag">${item.source}</span></td>
+        <td class="${cls}">${word}</td><td class="mono">${item.weight.toFixed(2)}</td>
+        <td>${item.claim.slice(0, 220)}</td></tr>`;
+    }).join("")}</table>` : `<div class="empty">No evidence for this filter.</div>`;
+}
+
+function renderTrace(report) {
+  $("trace-body").innerHTML = `<div class="timeline">` + (report.trace || []).map((step) => `
+    <div class="step"><div class="tool">${step.agent}</div>
+      <div class="obs">${step.message}</div></div>`).join("") + `</div>`;
+}
+
+/* ---------------------------------------------------------- MC-dropout panel */
+async function runMcDropout() {
+  $("mc-status").innerHTML = `<span class="loading"></span> sampling…`;
+  try {
+    const result = await api("/uncertainty", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ smiles: $("mc-smiles").value.trim(), n_samples: 25 }),
+    });
+    $("mc-status").textContent = "";
+    if (!result.available) {
+      $("mc-body").innerHTML = `<div class="empty">${result.reason}</div>`;
+      return;
+    }
+    const descriptors = result.descriptors || {};
+    const epistemic = result.epistemic_uncertainty;
+    $("mc-body").innerHTML = `
+      <div class="kpi">
+        <div class="box"><div class="label">predicted logP</div>
+          <div class="value">${result.mean_logp.toFixed(2)}</div>
+          <div class="hint">proxy task target</div></div>
+        <div class="box"><div class="label">dropout std</div>
+          <div class="value">${result.std_logp.toFixed(3)}</div>
+          <div class="hint">${result.n_samples} passes</div></div>
+        <div class="box"><div class="label">epistemic</div>
+          <div class="value" style="color:${epistemic > 0.3 ? "var(--warn)" : "var(--ok)"}">
+            ${epistemic.toFixed(3)}</div>
+          <div class="hint">scaled by training spread</div></div>
+      </div>
+      <table style="margin-top:12px">
+        <tr><th>descriptor</th><th>value</th></tr>
+        ${["mw", "logp", "hbd", "hba", "tpsa", "rings", "qed", "backend"]
+          .filter((key) => descriptors[key] !== undefined)
+          .map((key) => `<tr><td>${key}</td><td class="mono">${descriptors[key]}</td></tr>`).join("")}
+      </table>
+      <p class="note">${result.note}</p>`;
+  } catch (error) {
+    $("mc-status").textContent = "";
+    $("mc-body").innerHTML = `<div class="empty neg">${error.message}</div>`;
+  }
+}
+
+/* --------------------------------------------------------------- calibration */
+async function loadCalibration(refresh = false) {
+  $("cal-body").innerHTML = `<div class="empty"><span class="loading"></span> ${refresh
+    ? "recomputing all cases…" : "loading…"}</div>`;
+  try {
+    const report = await api(`/calibration${refresh ? "?refresh=true" : ""}`);
+    const metrics = report.metrics;
+    const detection = metrics.detection;
+    const abstention = metrics.abstention;
+
+    $("cal-body").innerHTML = `
+      <div class="kpi">
+        <div class="box"><div class="label">balanced accuracy</div>
+          <div class="value">${detection.balanced_accuracy.toFixed(2)}</div>
+          <div class="hint">${detection.positives} true / ${detection.negatives} wrong pairs</div></div>
+        <div class="box"><div class="label">false support</div>
+          <div class="value" style="color:${detection.false_support_rate === 0 ? "var(--ok)" : "var(--bad)"}">
+            ${detection.false_support_rate.toFixed(2)}</div>
+          <div class="hint">wrong pairs called supported</div></div>
+        <div class="box"><div class="label">AUROC</div>
+          <div class="value">${metrics.auroc_uncertainty.toFixed(2)}</div>
+          <div class="hint">uncertainty → correctness</div></div>
+        <div class="box"><div class="label">Brier / ECE</div>
+          <div class="value">${metrics.brier.toFixed(3)}</div>
+          <div class="hint">ECE ${metrics.ece.toFixed(3)}</div></div>
+        <div class="box"><div class="label">abstains on unknowns</div>
+          <div class="value">${Math.round(abstention.abstain_on_unknown * 100)}%</div>
+          <div class="hint">labelled: ${Math.round(abstention.abstain_on_labelled * 100)}%</div></div>
+      </div>
+      <table style="margin-top:14px">
+        <tr><th>label</th><th>drug → target</th><th>verdict</th><th>support</th>
+          <th>uncertainty</th><th>policy</th></tr>
+        ${report.results.map((row) => `
+          <tr><td><span class="tag">${row.label}</span></td>
+            <td>${row.drug} → ${row.target}</td>
+            <td><span class="badge ${row.verdict}"
+              style="font-size:10.5px;padding:3px 8px">${row.verdict}</span></td>
+            <td class="mono">${row.support_score.toFixed(2)}</td>
+            <td class="mono">${row.overall_uncertainty.toFixed(2)}</td>
+            <td class="mono">${row.tool_mode}</td></tr>`).join("")}
+      </table>
+      <p class="note">${report.results.length} cases · ${report.generated_at
+        ? "generated " + report.generated_at : "from evaluation/report.json"} ·
+        metrics computed over the labelled subset only.</p>`;
+  } catch (error) {
+    $("cal-body").innerHTML = `<div class="empty neg">${error.message}</div>`;
+  }
+}
+
+/* ------------------------------------------------------------------- compare */
+async function runCompare() {
+  const cases = $("compare-input").value.split("\n").map((line) => line.trim())
+    .filter(Boolean).map((line) => {
+      const [drug, target, ...rest] = line.split(",").map((part) => part.trim());
+      return { drug, target, disease: rest.join(", ") || "" };
+    });
+  if (!cases.length) return;
+
+  $("compare-status").innerHTML = `<span class="loading"></span> running ${cases.length} cases…`;
+  try {
+    const result = await api("/compare", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ cases }),
+    });
+    $("compare-status").textContent = `${result.cases.length} cases`;
+    $("compare-body").innerHTML = `<table>
+      <tr><th>drug → target</th><th>verdict</th><th>support</th><th>uncertainty</th>
+        <th>dominant doubt</th></tr>
+      ${result.cases.map((row) => `
+        <tr><td>${row.drug} → ${row.target}</td>
+          <td><span class="badge ${row.verdict}"
+            style="font-size:10.5px;padding:3px 8px">${row.verdict}</span></td>
+          <td class="mono">${(row.support_score ?? 0).toFixed(2)}</td>
+          <td class="mono">${(row.overall_uncertainty ?? 0).toFixed(2)}</td>
+          <td class="note" style="margin:0">${(row.dominant_dimension || "—").replaceAll("_", " ")}</td>
+        </tr>`).join("")}</table>`;
+  } catch (error) {
+    $("compare-status").textContent = "";
+    $("compare-body").innerHTML = `<div class="empty neg">${error.message}</div>`;
+  }
+}
+
+/* --------------------------------------------------------------------- tabs */
+function selectTab(name) {
+  document.querySelectorAll("#tabs button").forEach((button) => {
+    button.classList.toggle("active", button.dataset.panel === name);
+  });
+  document.querySelectorAll(".panel").forEach((panel) => {
+    panel.classList.toggle("active", panel.id === `panel-${name}`);
+  });
+  if (name === "calibration" && $("cal-body").querySelector(".empty")) loadCalibration();
+  if (name === "models" && $("models-body").querySelector(".empty")) loadModels();
+}
+
+document.querySelectorAll("#tabs button").forEach((button) => {
+  button.onclick = () => selectTab(button.dataset.panel);
 });
+
+$("run").onclick = runPipeline;
+$("mc-run").onclick = runMcDropout;
+$("compare-run").onclick = runCompare;
+$("cal-refresh").onclick = () => loadCalibration(true);
+$("evidence-filter").onchange = () => state.report && renderEvidence(state.report);
+
+loadStatus();
+loadOptions();
+loadModels();
 </script>
 </body>
 </html>
