@@ -23,14 +23,12 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
+          # the learned components are part of what ships, so CI installs them
+          pip install langgraph rdkit
+          pip install torch --index-url https://download.pytorch.org/whl/cpu
 
       - name: Run tests
         run: pytest -q
-
-      - name: Install optional extras used by the tests
-        run: |
-          pip install langgraph rdkit
-          pip install torch --index-url https://download.pytorch.org/whl/cpu
 
       - name: Run tests on the LangGraph engine
         env:

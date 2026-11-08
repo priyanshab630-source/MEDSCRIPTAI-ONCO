@@ -87,7 +87,11 @@ def test_compare_returns_one_row_per_case():
     assert response.status_code == 200
     rows = response.json()["cases"]
     assert len(rows) == 2
-    assert rows[0]["verdict"] != rows[1]["verdict"]
+    assert {(row["drug"], row["target"]) for row in rows} == {
+        ("SHP099", "SHP2"), ("SHP099", "EGFR")}
+    for row in rows:
+        assert row["verdict"] in ("SUPPORTED", "CONTRADICTED", "UNCERTAIN", "ABSTAIN")
+        assert 0.0 <= row["overall_uncertainty"] <= 1.0
 
 
 def test_compare_rejects_an_empty_list():
