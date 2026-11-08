@@ -15,7 +15,7 @@ def test_trace_is_written_locally(tmp_path, monkeypatch):
     tracer.event("planner", {"message": "planned"})
     record = tracer.end({"verdict": "SUPPORTED"})
 
-    lines = (tmp_path / "runs.jsonl").read_text().strip().splitlines()
+    lines = (tmp_path / "runs.jsonl").read_text(encoding="utf-8").strip().splitlines()
     assert len(lines) == 1
     stored = json.loads(lines[0])
     assert stored["run_id"] == record["run_id"]
@@ -42,6 +42,6 @@ def test_pipeline_writes_one_trace(tmp_path, monkeypatch):
     monkeypatch.setattr(config, "TRACE_DIR", tmp_path)
     run_pipeline(Hypothesis("SHP099", "SHP2", smiles="Nc1nc(N2CCNCC2)c2cc(Cl)ccc2n1"))
 
-    lines = (tmp_path / "runs.jsonl").read_text().strip().splitlines()
+    lines = (tmp_path / "runs.jsonl").read_text(encoding="utf-8").strip().splitlines()
     assert len(lines) == 1
     assert json.loads(lines[0])["inputs"]["engine"] in ("builtin", "langgraph")

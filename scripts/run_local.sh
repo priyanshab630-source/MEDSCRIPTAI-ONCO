@@ -10,12 +10,19 @@ set -euo pipefail
 PORT="${1:-8000}"
 cd "$(dirname "$0")/.."
 
-if [ ! -d .venv ]; then
+# reuse an existing virtualenv in this folder rather than making a second one
+VENV=""
+for candidate in .venv venv *venv; do
+  if [ -x "$candidate/bin/python" ]; then VENV="$candidate"; break; fi
+done
+if [ -z "$VENV" ]; then
   echo "==> creating .venv"
   python3 -m venv .venv
+  VENV=".venv"
 fi
-# shellcheck disable=SC1091
-source .venv/bin/activate
+echo "==> using $VENV"
+# shellcheck disable=SC1090
+source "$VENV/bin/activate"
 
 echo "==> installing dependencies (first run takes a couple of minutes)"
 python -m pip install --quiet --upgrade pip

@@ -77,8 +77,8 @@ def test_vina_calls_the_library(monkeypatch, tmp_path):
     """The adapter drives the real Vina API - checked with a stand-in module."""
     receptor = tmp_path / "receptor.pdbqt"
     ligand = tmp_path / "ligand.pdbqt"
-    receptor.write_text("RECEPTOR")
-    ligand.write_text("LIGAND")
+    receptor.write_text("RECEPTOR", encoding="utf-8")
+    ligand.write_text("LIGAND", encoding="utf-8")
 
     calls = {}
 

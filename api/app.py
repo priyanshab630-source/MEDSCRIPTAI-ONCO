@@ -16,6 +16,7 @@ Routes
 """
 
 import json
+from pathlib import Path
 import time
 
 from fastapi import FastAPI, HTTPException, Query
@@ -37,8 +38,8 @@ app = FastAPI(
     version="0.3.0",
 )
 
-STATIC_DIR = __file__.rsplit("/", 1)[0] + "/static"
-app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
+STATIC_DIR = Path(__file__).resolve().parent / "static"
+app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 
 _CALIBRATION_CACHE = {"report": None, "computed_at": None}
 
@@ -65,7 +66,7 @@ def _profile(target: str) -> dict:
     path = config.DATA_DIR / "targets.json"
     if not path.exists():
         return {}
-    targets = json.loads(path.read_text())
+    targets = json.loads(path.read_text(encoding="utf-8"))
     for name, profile in targets.items():
         if name.lower() == target.lower():
             return profile
@@ -111,7 +112,7 @@ def list_drugs():
 @app.get("/targets")
 def list_targets():
     path = config.DATA_DIR / "targets.json"
-    return json.loads(path.read_text()) if path.exists() else {}
+    return json.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
 
 
 @app.get("/tools")
@@ -238,7 +239,7 @@ def calibration_report(limit: int = Query(20, ge=2, le=40), refresh: bool = Fals
     """Serve the stored study, or compute it now (cached afterwards)."""
     stored = config.ROOT / "evaluation" / "report.json"
     if stored.exists() and not refresh and _CALIBRATION_CACHE["report"] is None:
-        _CALIBRATION_CACHE["report"] = json.loads(stored.read_text())
+        _CALIBRATION_CACHE["report"] = json.loads(stored.read_text(encoding="utf-8"))
         _CALIBRATION_CACHE["computed_at"] = "from evaluation/report.json"
         return _CALIBRATION_CACHE["report"]
 
@@ -271,4 +272,4 @@ def calibration_report(limit: int = Query(20, ge=2, le=40), refresh: bool = Fals
 
 @app.get("/")
 def index():
-    return FileResponse(STATIC_DIR + "/index.html")
+    return FileResponse(str(STATIC_DIR / "index.html"))

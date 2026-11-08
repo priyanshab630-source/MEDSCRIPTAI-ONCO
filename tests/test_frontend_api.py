@@ -11,6 +11,17 @@ from api.app import app                         # noqa: E402
 client = TestClient(app)
 
 
+def test_static_dir_resolves_portably():
+    """`__file__` uses backslashes on Windows - the static dir must still resolve."""
+    from api import app as app_module
+
+    static = app_module.STATIC_DIR
+    assert hasattr(static, "is_dir"), "STATIC_DIR should be a pathlib.Path"
+    assert static.is_dir(), f"{static} is not a directory"
+    assert "app.py" not in str(static)
+    assert (static / "index.html").is_file()
+
+
 def test_index_is_served_with_the_dashboard():
     response = client.get("/")
     assert response.status_code == 200

@@ -30,10 +30,10 @@ def test_render_functions_produce_markup(tmp_path):
     assert report["verdict"], "the pipeline must return a verdict first"
 
     report_path = tmp_path / "report.json"
-    report_path.write_text(json.dumps(report))
+    report_path.write_text(json.dumps(report), encoding="utf-8")
 
     script_path = tmp_path / "render_check.js"
-    script_path.write_text(HARNESS.read_text())
+    script_path.write_text(HARNESS.read_text(encoding="utf-8"))
 
     result = subprocess.run([node, str(script_path), str(report_path)],
                             capture_output=True, text=True, timeout=120)

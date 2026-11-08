@@ -15,15 +15,15 @@ import config
 
 
 def _drugs() -> dict:
-    return json.loads((config.DATA_DIR / "drugs.json").read_text())
+    return json.loads((config.DATA_DIR / "drugs.json").read_text(encoding="utf-8"))
 
 
 def _targets() -> dict:
-    return json.loads((config.DATA_DIR / "targets.json").read_text())
+    return json.loads((config.DATA_DIR / "targets.json").read_text(encoding="utf-8"))
 
 
 def _assays() -> list:
-    return json.loads((config.DATA_DIR / "assays.json").read_text())
+    return json.loads((config.DATA_DIR / "assays.json").read_text(encoding="utf-8"))
 
 
 def build() -> list:

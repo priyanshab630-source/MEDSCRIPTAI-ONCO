@@ -67,7 +67,7 @@ def test_loader_reads_the_shipped_snapshot(tmp_path):
     path = tmp_path / "triples.json"
     path.write_text(json.dumps([
         {"subject": "A", "relation": "BINDS", "object": "B", "polarity": 1, "source": "x"}
-    ]))
+    ]), encoding="utf-8")
 
     from scripts.load_neo4j import load_file
 

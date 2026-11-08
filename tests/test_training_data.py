@@ -41,7 +41,7 @@ def test_dpo_pair_prefers_structure_over_confidence():
 def test_build_writes_both_files(tmp_path):
     stats = build([REPORT, REPORT], tmp_path)
     assert stats["reports"] == 2
-    sft = (tmp_path / "sft.jsonl").read_text().strip().splitlines()
-    dpo = (tmp_path / "dpo.jsonl").read_text().strip().splitlines()
+    sft = (tmp_path / "sft.jsonl").read_text(encoding="utf-8").strip().splitlines()
+    dpo = (tmp_path / "dpo.jsonl").read_text(encoding="utf-8").strip().splitlines()
     assert len(sft) == len(dpo) == 2
     assert json.loads(sft[0])["metadata"]["verdict"] == "ABSTAIN"

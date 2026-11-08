@@ -30,8 +30,8 @@ def hypotheses() -> list:
     """Every drug-target pair in the seed tables, plus deliberate mismatches."""
     from src.core.schemas import Hypothesis
 
-    drugs = json.loads((config.DATA_DIR / "drugs.json").read_text())
-    targets = json.loads((config.DATA_DIR / "targets.json").read_text())
+    drugs = json.loads((config.DATA_DIR / "drugs.json").read_text(encoding="utf-8"))
+    targets = json.loads((config.DATA_DIR / "targets.json").read_text(encoding="utf-8"))
 
     pairs = []
     for name, record in drugs.items():
@@ -48,7 +48,7 @@ def hypotheses() -> list:
 
 
 def profile_for(target: str) -> dict:
-    targets = json.loads((config.DATA_DIR / "targets.json").read_text())
+    targets = json.loads((config.DATA_DIR / "targets.json").read_text(encoding="utf-8"))
     return targets.get(target, {})
 
 
