@@ -75,9 +75,21 @@ def verify(name: str) -> dict:
     if not entry.get("sha256"):
         return {"name": name, "ok": True, "reason": "no checksum recorded"}
     actual = sha256_of(name)
-    return {"name": name, "ok": actual == entry["sha256"],
-            "reason": "checksum matches" if actual == entry["sha256"]
-            else f"checksum mismatch: {actual[:16]} != {entry['sha256'][:16]}",
+    if actual == entry["sha256"]:
+        return {"name": name, "ok": True, "reason": "checksum matches",
+                "sha256": actual}
+
+    # Git may convert line endings (autocrlf on Windows, or a checkout hook).
+    # Compare the normalised content before calling it tampering.
+    normalised = hashlib.sha256(
+        path_for(name).read_bytes().replace(b"\r\n", b"\n")).hexdigest()
+    if normalised == entry["sha256"]:
+        return {"name": name, "ok": True,
+                "reason": "checksum matches after newline normalisation",
+                "sha256": actual}
+
+    return {"name": name, "ok": False,
+            "reason": f"checksum mismatch: {actual[:16]} != {entry['sha256'][:16]}",
             "sha256": actual}
 
 

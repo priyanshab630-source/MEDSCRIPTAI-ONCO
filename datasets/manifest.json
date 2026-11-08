@@ -17,7 +17,8 @@
       "sha256": "8c06a76f0c6487d29ab0f903e6a7a7139f189ab3c1178f159c8be8964602f189",
       "downloaded_at": "2026-11-08",
       "notes": "1128 drug-like molecules with measured aqueous solubility. Ships in the repo so training is reproducible offline.",
-      "bytes": 96699
+      "bytes": 96699,
+      "line_endings": "LF (normalised for git)"
     },
     {
       "name": "bace",
@@ -33,10 +34,11 @@
       "url": "https://deepchemdata.s3-us-west-1.amazonaws.com/datasets/bace.csv",
       "citation": "Subramanian et al. (2016) Computational modeling of beta-secretase 1 (BACE-1) inhibitors. Packaged by Wu et al. (2018), MoleculeNet, Chem. Sci. 9:513-530.",
       "license": "Public research data redistributed by the MoleculeNet authors; cite Subramanian et al. 2016 and Wu et al. 2018.",
-      "sha256": "1b13c2a8f5b4668baf520685bd6d3cde8822d982772ce3cb8e52d9197182bcfc",
+      "sha256": "3ca3115f7841a0562b7cd3e2ef5626a89ac56a648842e9eb6880211711f5c4e1",
       "downloaded_at": "2026-11-08",
       "notes": "1513 compounds with binary BACE-1 inhibition labels. The 588 fingerprint columns of the original file were dropped; only smiles, label and pIC50 are kept.",
-      "bytes": 119021
+      "bytes": 117507,
+      "line_endings": "LF (normalised for git)"
     },
     {
       "name": "qm7",
