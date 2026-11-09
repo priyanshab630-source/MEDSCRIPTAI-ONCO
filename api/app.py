@@ -83,12 +83,28 @@ def _resolve_smiles(request: HypothesisRequest) -> str:
 
 
 # ---------------------------------------------------------------------- routes
+def _build_id() -> str:
+    """Short git sha, so a stale server is obvious instead of mysterious."""
+    try:
+        import subprocess
+
+        return subprocess.run(["git", "rev-parse", "--short", "HEAD"],
+                              capture_output=True, text=True, timeout=3,
+                              cwd=config.ROOT).stdout.strip() or "unknown"
+    except Exception:                                  # noqa: BLE001
+        return "unknown"
+
+
 @app.get("/health")
 def health():
     return {
         "status": "ok",
         "engine": engine_name(),
         "agents": 6,
+        "build": _build_id(),
+        "docking_run": (config.ROOT / "runs" / "4ajl" / "report.json").exists(),
+        "routes": sorted(route.path for route in app.routes
+                         if getattr(route, "path", "").startswith("/docking")),
         "llm": "sarvam" if llm.available() else "rule-based fallback",
         "gnn": gnn_torch.describe(),
         "policy": policy.describe(),

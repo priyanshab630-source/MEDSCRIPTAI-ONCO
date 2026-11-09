@@ -726,7 +726,15 @@ function drawPose() {
 
 async function loadDocking() {
   try {
-    const data = await api("/docking");
+    const response = await fetch("/docking");
+    if (response.status === 404) {
+      $("dock-interactions").innerHTML =
+        '<div class="empty neg">This server has no /docking route — it is running an ' +
+        'older build. Pull the latest commit and restart uvicorn ' +
+        '(a running server only picks up new routes after a restart).</div>';
+      return;
+    }
+    const data = await response.json();
     if (!data.available) {
       $("dock-interactions").innerHTML =
         `<div class="empty">${data.hint || "no docking run yet"}</div>`;

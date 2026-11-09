@@ -96,6 +96,18 @@ residues within 4.5 Å, draws hydrogen bonds, labels the binding site, and rende
 headless equivalent here — the JSON report carries the same interaction table it would
 show, so you can reproduce the analysis there by hand.
 
+## In the dashboard
+
+| Route | Returns |
+|---|---|
+| `GET /docking` | scores, redocking RMSD, PLIP and built-in interaction tables |
+| `GET /docking/scene` | atoms, bonds and H-bond lines for the canvas viewer |
+| `GET /docking/view` | the same content as printable HTML, no JavaScript |
+
+The **Docking** tab needs `runs/4ajl/report.json`; it ships with the repo, so the tab
+works on a fresh clone. If the tab reports a missing route, the server is on an older
+build — `GET /health` shows the running `build` and its `routes`.
+
 ## Using your own structure
 
 ```bash
