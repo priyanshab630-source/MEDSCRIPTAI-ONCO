@@ -367,6 +367,22 @@ curl -X POST http://localhost:8000/analyze \
 
 ---
 
+## Docking, visualisation and interaction analysis
+
+Steps 3–5 of a structure-based workflow run from one command, on real coordinates:
+
+```bash
+pip install vina meeko openbabel-wheel
+python scripts/run_docking.py --receptor data/docking/4ajl/4ajl_pocket.pdb \
+    --ligand data/docking/4ajl/4ajl_ligand.mol2 --out runs/4ajl --exhaustiveness 8
+```
+
+AutoDock Vina docks, `src/tools/interactions.py` analyses the pose (H-bonds,
+hydrophobic contacts, salt bridges, π-stacks, binding-site residues), and the script
+writes PyMOL and ChimeraX session scripts plus a JSON/Markdown report. Validated by
+redocking the crystal ligand of PDBbind complex 4AJL: **0.73 Å RMSD**, well inside the
+2.0 Å success threshold. Details in [docs/DOCKING.md](docs/DOCKING.md).
+
 ## Real datasets
 
 The GNN is no longer trained on a toy library. Two real, citable datasets ship in
