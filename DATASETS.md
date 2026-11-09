@@ -62,6 +62,27 @@ This build sandbox cannot reach `www.ebi.ac.uk`, so the fetcher is tested agains
 recorded responses in `data/fixtures/chembl_*.json` rather than a live call. On a
 machine with normal network access the same command performs the real download.
 
+### Importing activities you already hold
+
+If you have ChEMBL activity records already (pulled through the ChEMBL MCP
+connector, or saved from `/activity.json`), skip the network step:
+
+```bash
+python scripts/import_chembl_activities.py activities.json \
+    --target-id CHEMBL3864 --target-name "SHP2 (PTPN11)" --name chembl_shp2
+```
+
+It keeps exact (`=`) IC50 rows that have a pChEMBL value and no ChEMBL validity
+flag, collapses repeated measurements to the median per compound, and registers
+the CSV like any other dataset.
+
+**`chembl_shp2`** (bundled): 759 unique SHP2 compounds, from the first 1,000 of
+3,404 pChEMBL-bearing IC50 records for `CHEMBL3864`, retrieved 2026-11-09 from
+ChEMBL v34. This is a partial slice, not the whole target, and it is heavy in
+phosphatase-assay hits (natural products, phosphopeptides), not just
+allosteric-site inhibitors. Re-run with a larger export before drawing
+conclusions from a model trained on it.
+
 ## Affinity data that does ship: BACE-1 pIC50
 
 `bace_pic50` is a regression entry over the same bundled BACE file: **1,513 measured

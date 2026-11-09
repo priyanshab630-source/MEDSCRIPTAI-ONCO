@@ -76,6 +76,25 @@
       "downloaded_at": "2026-11-08",
       "notes": "Real measured binding affinity (pIC50 = -log10 IC50) for 1513 compounds against BACE-1. This is the affinity dataset the GNN is trained on; the same file also carries binary inhibition labels.",
       "bytes": 117507
+    },
+    {
+      "name": "chembl_shp2",
+      "title": "SHP2 (PTPN11) bioactivity (IC50)",
+      "file": "data/datasets/chembl_shp2.csv",
+      "rows": 759,
+      "task": "regression",
+      "smiles_column": "smiles",
+      "target_column": "pchembl_value",
+      "target_units": "pChEMBL (-log10 molar)",
+      "target_label": "SHP2 (PTPN11) pChEMBL",
+      "source": "ChEMBL API (CHEMBL3864)",
+      "url": "https://www.ebi.ac.uk/chembl/target_report_card/CHEMBL3864",
+      "citation": "Mendez et al. (2019) ChEMBL: towards direct deposition of bioassay data. Nucleic Acids Res. 47:D930-D940.",
+      "license": "ChEMBL data is CC BY-SA 4.0 - attribute ChEMBL and share alike.",
+      "sha256": "cced0841d09a615fa7f6d675553fff6cf333f067b599610e0caa2941d591e51b",
+      "bytes": 71964,
+      "downloaded_at": "2026-11-09",
+      "notes": "IC50 measurements for SHP2 (PTPN11) (Homo sapiens), fetched from the ChEMBL REST API."
     }
   ],
   "kaggle": {

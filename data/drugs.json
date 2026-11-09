@@ -2,31 +2,35 @@
   "SHP099": {
     "target": "SHP2",
     "smiles": "Nc1nc(N2CCNCC2)c2cc(Cl)ccc2n1",
-    "note": "Illustrative analogue SMILES for the demo. Replace with the ChEMBL canonical SMILES before any real use."
+    "note": "Illustrative analogue SMILES for the demo. Not found in ChEMBL by name or synonym (checked 2026-11-09); replace with a verified structure before any real use."
   },
   "TNO155": {
     "target": "SHP2",
-    "smiles": "CC(C)(C)c1cc(Nc2ncc(C#N)c(Nc3ccc(CN4CCOCC4)cc3)n2)cc(Cl)c1",
-    "note": "Illustrative analogue SMILES for the demo."
+    "smiles": "C[C@@H]1OCC2(CCN(c3cnc(Sc4ccnc(N)c4Cl)c(N)n3)CC2)[C@@H]1N",
+    "chembl_id": "CHEMBL4650521",
+    "note": "ChEMBL canonical SMILES (batoprotafib, TNO-155)."
   },
   "RMC-4550": {
     "target": "SHP2",
     "smiles": "Cc1cc(Nc2nccc(Nc3ccc(CN4CCN(C)CC4)cc3)n2)cc(C)c1",
-    "note": "Illustrative analogue SMILES for the demo."
+    "note": "Illustrative analogue SMILES for the demo. Not found in ChEMBL by name or synonym (checked 2026-11-09); replace with a verified structure before any real use."
   },
   "Sotorasib": {
     "target": "KRAS_G12C",
-    "smiles": "C=CC(=O)N1CCN(c2nc3c(c(Nc4c(F)ccc5c4n(C)c(=O)n5C)n3)nc2C)CC1",
-    "note": "Illustrative analogue SMILES for the demo."
+    "smiles": "C=CC(=O)N1CCN(c2nc(=O)n(-c3c(C)ccnc3C(C)C)c3nc(-c4c(O)cccc4F)c(F)cc23)[C@@H](C)C1",
+    "chembl_id": "CHEMBL4535757",
+    "note": "ChEMBL canonical SMILES (AMG-510)."
   },
   "Adagrasib": {
     "target": "KRAS_G12C",
-    "smiles": "C=CC(=O)N1CCN(c2ccc3ncnc(Nc4cc(Cl)c(F)cc4OC)c3c2)CC1",
-    "note": "Illustrative analogue SMILES (quinazoline covalent inhibitor) for the demo; validated with RDKit."
+    "smiles": "C=C(F)C(=O)N1CCN(c2nc(OC[C@@H]3CCCN3C)nc3c2CCN(c2cccc4cccc(Cl)c24)C3)C[C@@H]1CC#N",
+    "chembl_id": "CHEMBL4594350",
+    "note": "ChEMBL canonical SMILES (MRTX849)."
   },
   "Osimertinib": {
     "target": "EGFR",
-    "smiles": "CN1CCN(CC1)c1cc(Nc2ncnc3cc(OC)c(OC)cc23)c(F)cc1NC(=O)C=C",
-    "note": "Illustrative analogue SMILES for the demo."
+    "smiles": "C=CC(=O)Nc1cc(Nc2nccc(-c3cn(C)c4ccccc34)n2)c(OC)cc1N(C)CCN(C)C",
+    "chembl_id": "CHEMBL3353410",
+    "note": "ChEMBL canonical SMILES (AZD9291), parent form."
   }
 }
