@@ -372,7 +372,6 @@ curl -X POST http://localhost:8000/analyze \
 | File | What it is |
 |---|---|
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | the full system walkthrough — target, agents, evidence, ML/DL/RL map, datasets, frontend, file map, limits |
-| [docs/presentation.html](docs/presentation.html) | 18-slide deck: aims and how each was achieved, DL, RL, agentic AI, folder structure, docking, scorecard (← → to navigate, F for full screen) |
 | [docs/DOCKING.md](docs/DOCKING.md) | docking, PLIP and the viewer scripts |
 
 ## Docking, visualisation and interaction analysis
