@@ -54,9 +54,34 @@ guessed:
   `aromatic_rings_range`) — used by the docking layer to score shape, polarity and
   pharmacophore complementarity.
 
-Three targets ship: `SHP2`, `KRAS_G12C`, `EGFR`. Adding a target is one JSON entry plus,
-optionally, literature/KG rows. The drugs themselves live in `data/drugs.json` with
-ChEMBL-verified canonical SMILES where available.
+Three targets ship: `SHP2`, `KRAS_G12C`, `EGFR`, plus `DEMO_4AJL` (a target backed by
+a real PDBbind structure, used to exercise docking end to end). Adding a target is one
+JSON entry plus, optionally, literature/KG rows. The drugs themselves live in
+`data/drugs.json` with ChEMBL-verified canonical SMILES where available.
+
+### 2.1 A profile scores; a structure docks
+
+The profile above is enough to *score* a compound. To *dock* it — real AutoDock Vina,
+real poses — the target also needs a structure, which lives beside it:
+
+```
+data/receptors/SHP2.pdb        protein structure (pocket or whole chain)
+data/receptors/SHP2.box.json   {"center": [31.66, 3.88, -1.5], "size": [24, 24, 24]}
+```
+
+`src/tools/receptors.py` is the switch between the two modes. Registering a structure is
+one command, which validates the file and computes the box for you:
+
+```bash
+python scripts/add_receptor.py --target EGFR --pdb egfr.pdb --reference-ligand lig.mol2
+python scripts/add_receptor.py --target SHP2 --pdb shp2.pdb --center 31.6 3.9 -1.5
+python scripts/add_receptor.py --target EGFR --pdb egfr.pdb --residues 718,719,745
+```
+
+**What ships today:** SHP2 uses the catalytic domain from PDB **3O5X** (PDBbind v2015,
+located through UniProt cross-references for PTPN11/Q06124), box centred on its crystal
+ligand. `DEMO_4AJL` uses PDBbind 4AJL. KRAS_G12C and EGFR have profiles but no
+structure, so they fall back to the surrogate — and say so in the trace.
 
 ---
 
@@ -75,6 +100,7 @@ Hypothesis(drug, target, disease, smiles)
         │
         ▼
 [3] Analysis Agent ─────► computations[]: QSAR, GNN, docking
+        │                 docking_detail: real Vina pose, if the target has a structure
         │                 tool_calls[]: the orchestration transcript
         │                 model_reliability_measured: MC-dropout spread
         ▼
@@ -91,7 +117,8 @@ State is one dict (`src/core/state.py`, `OncoState`) that every agent reads and 
 each agent appends a line to `trace`, which is why the report can show its own reasoning.
 
 For SHP099 → SHP2 that run produces: `SUPPORTED`, overall uncertainty 0.12, 75% weighted
-support, QSAR 0.80, GNN 0.83, docking 0.89 (−10.23 kcal/mol), seven evidence items, and a
+support, QSAR 0.80, GNN 0.83, and a **real docked pose of −6.22 kcal/mol** with 6
+hydrogen bonds and 19 binding-site residues (ASP425, ARG465, CYS459, GLN506…), plus a
 tool transcript of `docking → kg_lookup → literature_search`.
 
 ---
@@ -129,11 +156,17 @@ Three retrievals, each returning `EvidenceItem(source, claim, polarity, weight, 
 
 ### 4.3 Computational Analysis Agent (`analysis.py`)
 
-**In:** hypothesis + target profile. **Out:** `computations[]`, `tool_calls[]`,
-`model_reliability_measured`.
+**In:** hypothesis + target profile. **Out:** `computations[]`, `docking_detail`,
+`tool_calls[]`, `model_reliability_measured`.
 
-Runs the three in-silico signals (§6) and then the **tool-orchestration loop** (§7), which
-decides in what order the tools are called. It also computes the GNN's Monte-Carlo
+Runs the three in-silico signals (§6), and — the important part — **docks this specific
+compound** when the target has a structure (§6.4). The measured pose then replaces the
+surrogate score in the computation list, and the pose, both interaction analyses and the
+viewer scene ride along in `docking_detail`. When no structure exists it logs
+`no receptor for <target>: using the conformer surrogate` and carries on, so the trace
+always says which mode produced the number.
+
+It then runs the **tool-orchestration loop** (§7), and computes the GNN's Monte-Carlo
 dropout spread, which becomes the `model_reliability` dimension.
 
 ### 4.4 Critic / Falsification Agent (`critic.py`)
@@ -214,17 +247,35 @@ The binding score is `sigmoid(1.2 · profile_fit + w·embedding)` — the readou
 rule-based on purpose, and the report says so. The embedding is learned; the affinity
 interpretation of it is not.
 
-### 6.3 Docking — physics, `src/tools/docking.py`
+### 6.3 Docking, layer one — the conformer surrogate (`docking.py`)
 
 RDKit embeds five conformers (ETKDG, seeded), MMFF94 minimises them, and the score
 combines size fit, radius fit, aromatic/pharmacophore fit, hydrophobic and polar
-complementarity against the pocket profile, times a penalty for floppy ligands. It is
-real molecular mechanics on the ligand; the pocket is a profile, not a structure. The
-result is mapped to an estimated kcal/mol and is deterministic.
+complementarity against the pocket profile, times a penalty for floppy ligands. Real
+molecular mechanics on the ligand; the pocket is a profile, not a structure. This is what
+runs for targets without a registered structure.
 
-`src/tools/vina_adapter.py` runs **genuine AutoDock Vina** when you supply receptor and
-ligand PDBQT files — the library installs and the adapter is tested against its API, but
-no protein structure ships.
+### 6.4 Docking, layer two — real AutoDock Vina (`docking_run.py`)
+
+When the target has a structure, the Analysis agent docks the compound for real:
+
+| step | tool | output |
+|---|---|---|
+| receptor → PDBQT | Open Babel (`-xr`, rigid) | `receptor.pdbqt` |
+| SMILES/SDF/MOL2 → PDBQT | Meeko (hydrogens, AutoDock types, torsions) | `ligand.pdbqt` |
+| search | **AutoDock Vina 1.2**, box from `receptors.box(target)` | 9 poses, affinities |
+| complex | protein ATOM + pose 1 HETATM | `complex.pdb` |
+| interactions | `interactions.py` + `plip_adapter.py` | counts, residues, distances |
+| scene | `scene.py` | atoms, bonds, H-bond lines for the browser |
+
+Results are cached per `(target, smiles)` so a repeated hypothesis is instant and returns
+identical numbers, and the whole path is switchable with `DOCKING_ENABLED=0` (the test
+suite uses that; a Vina grid on a 4,116-atom receptor inside 20 calibration cases is not
+what CI should do).
+
+Measured, on the shipped SHP2 receptor: SHP099 → **−6.22 kcal/mol**, 6 H-bonds, 19
+binding-site residues. On the 4AJL demo complex, redocking the crystal ligand reproduces
+it to **0.73 Å RMSD**.
 
 ---
 
@@ -362,7 +413,7 @@ always traceable to the file it was trained on.
 | **DL** | Molecular representation; uncertainty estimation; the verdict writer | 2-layer message-passing GNN (Adam, MSE/BCE); Monte-Carlo dropout; LoRA SFT + DPO | `tools/gnn_torch.py`, `training/train_gnn.py`, `training/sft_train.py`, `training/dpo_train.py` | held-out MAE 0.736 / 0.860 / 0.662 on three datasets |
 | **RL** | Which tool to call next, learned from the outcome of the run | REINFORCE with moving-average baseline, masked softmax over 5 actions, 11-feature state | `tools/policy.py`, `training/train_policy.py`, `tools/react_agent.py` | 200 episodes, mean return 0.85, verdict in 3 calls vs 4 |
 | **Agentic AI** | The whole pipeline: planning, retrieval, falsification, adaptive retries, and a decision that can abstain | 6-agent graph with one conditional edge; shared typed state; per-agent audit trail; LLM-optional reasoning | `agents/*.py`, `core/graph.py`, `core/engine.py` | four verdicts demonstrated; every run reproducible without an LLM |
-| **Physics / chemoinformatics** | Docking and conformer energetics | ETKDG embedding, MMFF94 minimisation, range-based complementarity; Vina adapter | `tools/docking.py`, `tools/vina_adapter.py` | SHP099→SHP2 0.89 vs SHP099→EGFR 0.44 |
+| **Physics / chemoinformatics** | Docking, conformer energetics and interaction profiling | ETKDG embedding + MMFF94 (surrogate); **AutoDock Vina 1.2** when a structure is registered; PLIP + a geometric analyser for interactions | `tools/docking.py`, `tools/docking_run.py`, `tools/interactions.py`, `tools/plip_adapter.py` | SHP099→SHP2 −6.22 kcal/mol, 19 residues; 4AJL redocking 0.73 Å |
 
 ---
 
@@ -421,6 +472,7 @@ invented for the UI.
 | Models & DL | `/models`, `/uncertainty` | checkpoint cards + an MC-dropout explorer: type a SMILES, get predicted value, dropout spread, epistemic uncertainty |
 | Datasets | `/datasets` | source, citation, licence, observed range, checksum, ligand check, held-out metrics |
 | Calibration | `/calibration` | metric tiles, per-case table, recompute button |
+| Docking | `/docking`, `/docking/scene`, `report.docking` | the pose for **the compound you just analysed** when its target has a structure, otherwise the shipped sample run; rotatable canvas, PLIP vs built-in tables |
 | Compare | `/compare` | several hypotheses side by side |
 
 ---
@@ -449,8 +501,15 @@ src/tools/
   qsar.py                   RDKit descriptors (or graph estimates) + profile scoring
   gnn.py                    NumPy message passing + binding readout
   gnn_torch.py              trained GNN, MC-dropout uncertainty, checkpoint loading
-  docking.py                conformer/MMFF scoring
-  vina_adapter.py           real AutoDock Vina
+  docking.py                conformer/MMFF surrogate scoring
+  docking_run.py            per-compound Vina docking, cached, returns pose + scene
+  run_docking_helpers.py    receptor/ligand preparation and the Vina call (shared)
+  receptors.py              which targets have a structure, and where
+  vina_adapter.py           thin AutoDock Vina availability/API wrapper
+  interactions.py           geometric H-bonds, hydrophobic, salt bridges, pi-stacks
+  plip_adapter.py           PLIP run + XML parsing (nested under interactions/)
+  scene.py                  complex -> JSON scene for the browser canvas
+  render_svg.py             server-side SVG projection for print/screenshots
   policy.py                 REINFORCE tool policy
   react_agent.py            tool orchestration loop (rl / llm / deterministic)
   knowledge_graph.py        JSON snapshot + Neo4j backend
@@ -463,6 +522,9 @@ scripts/
   fetch_chembl.py           ChEMBL target → activities → SMILES → manifest
   import_chembl_activities.py  saved ChEMBL export → registered dataset
   load_neo4j.py             load the KG snapshot into Neo4j
+  run_docking.py            standalone docking CLI (prep, dock, analyse, viewers)
+  add_receptor.py           register a structure + box for any target
+  ui_snapshot.py            screenshot the Docking tab without a JS browser
   run_local.sh / .ps1       one-command local server
 training/
   train_gnn.py              GNN training on any registered dataset (--resume)
@@ -477,17 +539,19 @@ evaluation/
 data/
   targets.json drugs.json assays.json kg_triples.json literature.json
   datasets/                 esol.csv, bace.csv, chembl_shp2.csv
+  receptors/                shp2.pdb + shp2.box.json, demo_4ajl.pdb + box
   fixtures/                 recorded arXiv, Europe PMC and ChEMBL responses
+  docking/4ajl/             PDBbind complex used by the docking tests
 datasets/manifest.json      provenance for every dataset
 models/                     gnn.pt, gnn_affinity.pt, gnn_chembl_shp2.pt, tool_policy.pt
-tests/                      122 tests (5 skipped, each needing optional infrastructure)
+tests/                      142 tests (4 skipped: docking stack, live services)
 ```
 
 ---
 
 ## 14. Testing and CI
 
-122 tests, five skipped (each requires optional infrastructure: a live Neo4j, an
+142 tests, four skipped (each requires optional infrastructure: a live Neo4j, an
 OpenSearch cluster, Docling's models, a Telegram token). Every push runs the suite on
 Python 3.11 and 3.12, twice — once on the built-in graph engine and once on real
 LangGraph — so the shim cannot drift from the engine. Nothing needs an API key, which is
@@ -499,8 +563,12 @@ what makes the numbers reproducible.
 
 * The GNN learns chemistry from solubility and IC50 data; it is not a general affinity
   model, and the affinity readout on top of its embedding is rule-based.
-* Docking scores conformers against a pocket *profile*. Real docking needs a structure —
-  the Vina adapter is ready for one.
+* Docking is real only where a structure is registered. SHP2 ships the 3O5X *catalytic*
+  domain, and SHP099 is an *allosteric* inhibitor — so its −6.22 kcal/mol is a genuine
+  Vina result against a genuine SHP2 structure, but not its true binding mode. Register
+  5EHR or 6BMU for that. KRAS_G12C and EGFR still fall back to the surrogate.
+* The PLIP and built-in analysers disagree by design (angle-aware vs distance cutoffs):
+  4 H-bonds vs 6 on the same pose. Both are reported.
 * Neo4j, live literature, LangSmith/Langfuse and the LLM path have code and tests against
   fakes or recorded responses, but have never been exercised against the live services
   from this build environment.
@@ -521,4 +589,12 @@ bash scripts/run_local.sh          # → http://127.0.0.1:8000
 python main.py --demo              # four verdicts in one command
 python evaluation/run_calibration.py
 python scripts/fetch_datasets.py --verify
+
+# docking: needs the optional stack
+pip install vina meeko openbabel-wheel plip
+python scripts/run_docking.py --receptor data/receptors/shp2.pdb     --ligand data/docking/4ajl/4ajl_ligand.mol2 --out runs/sample
 ```
+
+After changing code, restart the server — uvicorn only registers routes at startup.
+`GET /health` reports the running `build`, whether a docking run exists, and which
+`/docking` routes that build exposes.
