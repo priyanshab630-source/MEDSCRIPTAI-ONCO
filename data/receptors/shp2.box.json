@@ -1,0 +1,13 @@
+{
+  "center": [
+    31.66,
+    3.88,
+    -1.5
+  ],
+  "size": [
+    22.0,
+    22.0,
+    22.0
+  ],
+  "source": "centroid of 3o5x_ligand.mol2; structure 3o5x_protein.pdb"
+}

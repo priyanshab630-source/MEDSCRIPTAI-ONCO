@@ -403,6 +403,12 @@ python scripts/fetch_datasets.py --fetch qm7  # fetch an optional extra
 | `bace` | classification | 1,513 | BACE-1 inhibition class | MoleculeNet / Subramanian 2016 |
 | `bace_pic50` | regression | 1,513 | BACE-1 **pIC50** (measured affinity) | MoleculeNet / Subramanian 2016 |
 | `chembl_shp2` | regression | 759 | SHP2 IC50 → pChEMBL | ChEMBL, target CHEMBL3864 |
+
+**Docking runs on real structures.** `data/receptors/` holds the SHP2 catalytic domain
+(PDB 3O5X, PDBbind v2015) and a demo complex (4AJL); any target with a structure is
+docked with AutoDock Vina per compound, the rest fall back to the conformer surrogate.
+Add your own with `python scripts/add_receptor.py --target EGFR --pdb x.pdb
+--reference-ligand lig.mol2`.
 | ChEMBL (any target) | regression | yours | pChEMBL | `scripts/fetch_chembl.py --target PTPN11` |
 
 Three checkpoints ship: the default **ESOL** encoder (test MAE **0.736** log units,

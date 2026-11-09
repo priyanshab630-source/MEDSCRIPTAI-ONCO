@@ -28,6 +28,12 @@ NEO4J_PASSWORD = os.getenv("NEO4J_PASSWORD", "")
 # shim in src/core/graph.py is used. Same nodes, same edges, same result.
 USE_LANGGRAPH = os.getenv("USE_LANGGRAPH", "0") in ("1", "true", "yes")
 
+# ---------- Docking ----------
+# Real AutoDock Vina docking runs for every analysed compound when the target has a
+# structure in data/receptors/. Set DOCKING_ENABLED=0 to force the surrogate (tests do
+# this, because a grid on a 4,000-atom receptor is not something to run 20 times).
+DOCKING_ENABLED = os.getenv("DOCKING_ENABLED", "1") not in ("0", "false", "no")
+
 # ---------- Learned components ----------
 # Which GNN checkpoint the pipeline loads. Defaults to the broad ESOL-trained
 # encoder; set GNN_CHECKPOINT=models/gnn_affinity.pt for the BACE-1 affinity model.

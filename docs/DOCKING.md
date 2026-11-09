@@ -128,7 +128,30 @@ data/receptors/SHP2.box.json    {"center": [x, y, z], "size": [22, 22, 22]}
 The moment `SHP2.pdb` exists, every SHP2 hypothesis is docked for real and the
 **Docking** tab shows that compound's own pose instead of the sample.
 
-`DEMO_4AJL` ships as a demonstration target backed by PDBbind 4AJL, so the path can be
+### SHP2 ships with a structure
+
+`data/receptors/shp2.pdb` is the SHP2 catalytic domain from PDB **3O5X** (PDBbind v2015,
+found via the UniProt cross-references for PTPN11/Q06124), with the search box centred
+on its crystal ligand. So SHP2 hypotheses are docked with Vina, not scored by the
+surrogate:
+
+| compound | best pose | H-bonds | binding-site residues |
+|---|---|---|---|
+| SHP099 | −6.22 kcal/mol | 6 | 19 (ASP425, ARG465, CYS459, GLN506…) |
+| SHP099 (against 4AJL, for contrast) | −7.19 kcal/mol | 4 | 18 |
+
+**Read that number carefully.** 3O5X is the *catalytic* domain, and SHP099 is an
+allosteric inhibitor — it binds the tunnel at the C-SH2/phosphatase interface, not the
+active site. The pose is a real Vina result against a real SHP2 structure, but it is not
+SHP099's true binding mode. Register an allosteric-domain structure (5EHR, 6BMU) the
+same way to dock it properly:
+
+```bash
+python scripts/add_receptor.py --target SHP2 --pdb 5ehr_protein.pdb \
+    --reference-ligand 5ehr_ligand.mol2
+```
+
+`DEMO_4AJL` also ships as a demonstration target backed by PDBbind 4AJL, so the path can be
 exercised end to end today:
 
 ```bash
@@ -137,7 +160,9 @@ python main.py --drug 4AJL_ligand --target DEMO_4AJL \
 ```
 
 Results are cached per (target, SMILES), so re-running a hypothesis is instant and
-returns identical numbers.
+returns identical numbers. Set  to force the surrogate everywhere
+(the test suite does this, because a Vina grid on a 4,000-atom receptor inside every
+analysis is not what you want in CI).
 
 ## Using your own structure
 

@@ -24,6 +24,8 @@ def available(target: str) -> bool:
     """Real docking is possible when a structure, a box and the toolchain exist."""
     from src.tools import vina_adapter
 
+    if not config.DOCKING_ENABLED:
+        return False
     return receptors.available(target) and vina_adapter.available() \
         and vina_adapter.meeko_available()
 

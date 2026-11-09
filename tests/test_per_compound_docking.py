@@ -2,7 +2,14 @@
 
 import pytest
 
+import config
 from src.tools import docking_run, receptors
+
+
+@pytest.fixture
+def docking_on(monkeypatch):
+    """Opt in to real docking for the tests that need it."""
+    monkeypatch.setattr(config, "DOCKING_ENABLED", True)
 
 pytest.importorskip("rdkit", reason="rdkit is optional")
 
@@ -16,14 +23,22 @@ def test_registry_lists_the_demo_receptor():
     assert entries["DEMO_4AJL"]["box"]["center"]
 
 
+def test_shp2_has_a_registered_structure():
+    """SHP2 ships with the PDBbind 3O5X catalytic domain, so it docks for real."""
+    entries = {entry["target"]: entry for entry in receptors.registry()}
+    assert "SHP2" in entries
+    assert entries["SHP2"]["docked"] is True
+
+
 def test_targets_without_a_structure_report_unavailable():
-    assert receptors.available("SHP2") is False
-    assert docking_run.available("SHP2") is False
+    assert receptors.available("KRAS_G12C") is False
+    assert docking_run.available("KRAS_G12C") is False
 
 
-@pytest.mark.skipif(not docking_run.available("DEMO_4AJL"),
+@pytest.mark.skipif(not (docking_run.available("DEMO_4AJL")
+                        or __import__("src.tools.vina_adapter", fromlist=["x"]).available()),
                     reason="Vina/Meeko or the demo receptor is unavailable")
-def test_compound_is_docked_and_returns_a_scene():
+def test_compound_is_docked_and_returns_a_scene(docking_on):
     result = docking_run.dock_compound(LIGAND, "DEMO_4AJL", exhaustiveness=1)
     assert result["engine"].startswith("AutoDock Vina")
     assert result["best_affinity"] < 0
@@ -33,17 +48,17 @@ def test_compound_is_docked_and_returns_a_scene():
     assert result["scene"]["counts"]["bonds"] > 10
 
 
-@pytest.mark.skipif(not docking_run.available("DEMO_4AJL"),
-                    reason="Vina/Meeko or the demo receptor is unavailable")
-def test_results_are_cached_and_deterministic():
+def test_results_are_cached_and_deterministic(docking_on):
+    if not docking_run.available("DEMO_4AJL"):
+        pytest.skip("docking stack unavailable")
     first = docking_run.dock_compound(LIGAND, "DEMO_4AJL", exhaustiveness=1)
     second = docking_run.dock_compound(LIGAND, "DEMO_4AJL", exhaustiveness=1)
     assert first["best_affinity"] == second["best_affinity"]
 
 
-@pytest.mark.skipif(not docking_run.available("DEMO_4AJL"),
-                    reason="Vina/Meeko or the demo receptor is unavailable")
-def test_analysis_endpoint_docks_the_compound_it_was_given():
+def test_analysis_endpoint_docks_the_compound_it_was_given(docking_on):
+    if not docking_run.available("DEMO_4AJL"):
+        pytest.skip("docking stack unavailable")
     from fastapi.testclient import TestClient
 
     from api.app import app
