@@ -736,12 +736,18 @@ async function loadDocking() {
     $("dock-rmsd").textContent = data.redocking_rmsd !== null
       ? `redocking ${data.redocking_rmsd} Å` : "no redocking check";
     $("dock-kpis").innerHTML = `
-      <div class="kpi" style="margin-bottom:8px"><div class="label">best pose</div>
-        <div class="value">${data.poses[0][0]} kcal/mol</div></div>
-      <div class="kpi" style="margin-bottom:8px"><div class="label">crystal pose</div>
-        <div class="value">${data.crystal_pose_score} kcal/mol</div></div>
-      <div class="kpi"><div class="label">binding site</div>
-        <div class="value" style="font-size:15px">${data.own_analysis.residues.length} residues</div></div>`;
+      <div class="kpi" style="margin-bottom:10px"><div class="box">
+        <div class="label">best pose</div>
+        <div class="value">${data.poses[0][0]} kcal/mol</div>
+        <div class="hint">AutoDock Vina, ${data.exhaustiveness} exhaustiveness</div></div></div>
+      <div class="kpi" style="margin-bottom:10px"><div class="box">
+        <div class="label">crystal pose</div>
+        <div class="value">${data.crystal_pose_score} kcal/mol</div>
+        <div class="hint">redocking ${data.redocking_rmsd} Å RMSD</div></div></div>
+      <div class="kpi"><div class="box">
+        <div class="label">binding site</div>
+        <div class="value" style="font-size:17px">${data.own_analysis.residues.length} residues</div>
+        <div class="hint">within 5 Å of the ligand</div></div></div>`;
 
     const plip = data.plip || {};
     const pc = plip.counts || {}, oc = data.own_analysis.counts || {};
