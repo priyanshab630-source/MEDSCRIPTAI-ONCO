@@ -108,6 +108,37 @@ The **Docking** tab needs `runs/4ajl/report.json`; it ships with the repo, so th
 works on a fresh clone. If the tab reports a missing route, the server is on an older
 build — `GET /health` shows the running `build` and its `routes`.
 
+## Per-compound docking in the pipeline
+
+Docking is no longer a separate step you run by hand. When you analyse a hypothesis,
+the Analysis agent checks `data/receptors/` for a structure of that target:
+
+* **structure present** → it docks *that compound* with AutoDock Vina, keeps the best
+  pose, runs both interaction analysers and attaches the scene to the report;
+* **no structure** → it says so in the trace and falls back to the conformer/MMFF
+  surrogate score, which is what SHP2, KRAS_G12C and EGFR use today.
+
+Adding a target is two files:
+
+```
+data/receptors/SHP2.pdb         protein structure (pocket or whole chain)
+data/receptors/SHP2.box.json    {"center": [x, y, z], "size": [22, 22, 22]}
+```
+
+The moment `SHP2.pdb` exists, every SHP2 hypothesis is docked for real and the
+**Docking** tab shows that compound's own pose instead of the sample.
+
+`DEMO_4AJL` ships as a demonstration target backed by PDBbind 4AJL, so the path can be
+exercised end to end today:
+
+```bash
+python main.py --drug 4AJL_ligand --target DEMO_4AJL \
+    --smiles 'CCNC(=O)NCCC(=O)Nc1ccc2nc(C)sc2c1'
+```
+
+Results are cached per (target, SMILES), so re-running a hypothesis is instant and
+returns identical numbers.
+
 ## Using your own structure
 
 ```bash

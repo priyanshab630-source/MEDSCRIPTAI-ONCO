@@ -34,6 +34,7 @@ def run(state):
         abstain_reasons=reasons,
         trace=state.get("trace", []),
         tool_calls=state.get("tool_calls", []),
+        docking=state.get("docking_detail", {}),
         tool_mode=state.get("tool_mode", "deterministic"),
     )
     state["report"] = report

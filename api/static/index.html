@@ -464,6 +464,7 @@ async function runPipeline() {
       }),
     });
     state.report = report;
+  window.lastReport = report;
     renderVerdict(report);
     renderUncertainty(report);
     renderTools(report);
@@ -725,6 +726,11 @@ function drawPose() {
 }
 
 async function loadDocking() {
+  const current = (window.lastReport && window.lastReport.docking) || null;
+  if (current && current.scene) {
+    renderDocking(current, `${current.target} · this compound`);
+    return;
+  }
   try {
     const response = await fetch("/docking");
     if (response.status === 404) {
@@ -776,10 +782,60 @@ async function loadDocking() {
         ${(data.own_analysis.residues || []).slice(0, 14).join(", ")}</div>`;
 
     dockScene = await api("/docking/scene");
-    drawPose();
+    renderDocking({
+      target: "4AJL sample",
+      engine: data.engine,
+      best_affinity: data.poses[0][0],
+      poses: data.poses,
+      own_analysis: data.own_analysis,
+      plip: data.plip,
+      scene: dockScene,
+      note: "sample run shipped with the repo — analyse a compound against a target " +
+            "that has a structure (DEMO_4AJL) to see its own pose here",
+    }, "4AJL sample");
   } catch (error) {
     $("dock-interactions").innerHTML = `<div class="empty neg">${error.message}</div>`;
   }
+}
+
+function renderDocking(docking, subtitle) {
+  const own = (docking.own_analysis || {}).counts || {};
+  const plip = (docking.plip || {}).counts || {};
+  $("dock-engine").textContent = docking.engine || "AutoDock Vina";
+  $("dock-rmsd").textContent = subtitle || docking.target || "";
+  $("dock-kpis").innerHTML = `
+    <div class="kpi" style="margin-bottom:10px"><div class="box">
+      <div class="label">best pose</div>
+      <div class="value">${docking.best_affinity} kcal/mol</div>
+      <div class="hint">${(docking.poses || []).length} poses kept</div></div></div>
+    <div class="kpi" style="margin-bottom:10px"><div class="box">
+      <div class="label">hydrogen bonds</div>
+      <div class="value">${own.hydrogen_bonds ?? 0}</div>
+      <div class="hint">PLIP: ${plip.hydrogen_bonds ?? "n/a"}</div></div></div>
+    <div class="kpi"><div class="box">
+      <div class="label">binding site</div>
+      <div class="value" style="font-size:17px">${own.binding_site_residues ?? 0} residues</div>
+      <div class="hint">PLIP: ${plip.binding_site_residues ?? "n/a"}</div></div></div>`;
+
+  const row = (label, a, b) => `<tr><td>${label}</td><td class="mono">${a}</td>
+    <td class="mono">${b}</td></tr>`;
+  $("dock-interactions").innerHTML = `
+    <table style="margin-bottom:12px">
+      <tr><th>interaction</th><th>PLIP</th><th>built-in</th></tr>
+      ${row("hydrogen bonds", plip.hydrogen_bonds ?? "—", own.hydrogen_bonds ?? 0)}
+      ${row("hydrophobic", plip.hydrophobic_contacts ?? "—", own.hydrophobic_contacts ?? 0)}
+      ${row("salt bridges", plip.salt_bridges ?? "—", own.salt_bridges ?? 0)}
+      ${row("pi-stacks", plip.pi_stacks ?? "—", own.pi_stacks ?? 0)}
+      ${row("binding-site residues", plip.binding_site_residues ?? "—",
+            own.binding_site_residues ?? 0)}
+    </table>
+    ${docking.note ? `<div class="note">${docking.note}</div>` : ""}
+    <div class="note" style="margin-top:8px">Residues:
+      ${((docking.own_analysis || {}).residues || []).slice(0, 14).join(", ")}</div>`;
+
+  dockScene = docking.scene;
+  dockAngle = -0.55; dockPitch = 0.32; dockZoom = 1;
+  drawPose();
 }
 
 function bindPoseCanvas() {

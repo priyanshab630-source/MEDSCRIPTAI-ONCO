@@ -12,6 +12,7 @@ class OncoState(TypedDict, total=False):
     contradictions: list       # human-readable falsification notes
     tool_calls: list           # ChemCrow-style tool transcript
     tool_mode: str             # "rl-policy" | "llm" | "deterministic"
+    docking_detail: dict        # real Vina result for this compound, if any
     model_reliability_measured: float  # MC-dropout spread from the trained GNN
     loops: int                 # adaptive re-planning rounds used
     next_action: str           # "evidence" | "decision"

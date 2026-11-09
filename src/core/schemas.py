@@ -90,6 +90,7 @@ class VerdictReport:
     abstain_reasons: list = field(default_factory=list)
     trace: list = field(default_factory=list)
     tool_calls: list = field(default_factory=list)
+    docking: dict = field(default_factory=dict)
     tool_mode: str = "deterministic"
     engine: str = "builtin"
 

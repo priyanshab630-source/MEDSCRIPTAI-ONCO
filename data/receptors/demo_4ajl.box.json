@@ -1,0 +1,13 @@
+{
+  "center": [
+    18.79,
+    -7.74,
+    1.52
+  ],
+  "size": [
+    22,
+    22,
+    22
+  ],
+  "source": "crystal ligand centroid of PDBbind 4AJL"
+}

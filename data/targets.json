@@ -121,5 +121,46 @@
       115
     ],
     "notes": "ATP site of the kinase domain, T790M gatekeeper variants considered."
+  },
+  "DEMO_4AJL": {
+    "gene": "DEMO",
+    "pocket": {
+      "hydrophobicity": 0.55,
+      "polarity": 0.4,
+      "mw_range": [
+        280,
+        520
+      ],
+      "radius_range": [
+        3.5,
+        7.0
+      ],
+      "aromatic_rings_range": [
+        1,
+        4
+      ],
+      "reference_mw": 380
+    },
+    "mw": [
+      250,
+      520
+    ],
+    "logp": [
+      1.0,
+      5.0
+    ],
+    "hbd": [
+      0,
+      3
+    ],
+    "hba": [
+      3,
+      9
+    ],
+    "tpsa": [
+      40,
+      120
+    ],
+    "notes": "Demonstration target backed by a real PDBbind structure (4AJL). Used to exercise the docking path end to end; it is not SHP2. Drop data/receptors/SHP2.pdb to dock SHP2 compounds."
   }
 }

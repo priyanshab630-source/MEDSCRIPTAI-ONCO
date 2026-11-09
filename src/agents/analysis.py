@@ -10,7 +10,7 @@ import json
 import config
 from src.core.schemas import ComputeResult
 from src.core.state import log
-from src.tools import docking, gnn, gnn_torch, qsar, react_agent
+from src.tools import docking, docking_run, gnn, gnn_torch, qsar, react_agent
 
 
 def _target_profile(target: str) -> dict:
@@ -52,6 +52,22 @@ def run(state):
     ))
 
     dock = docking.score(smiles, hypothesis.target, profile.get("pocket", {}))
+
+    # If the target has a real structure, dock this compound into it and let the
+    # measured pose replace the surrogate score in the computation list.
+    detail = {}
+    if smiles and docking_run.available(hypothesis.target):
+        try:
+            detail = docking_run.dock_compound(smiles, hypothesis.target)
+            state["docking_detail"] = detail
+            log(state, "analysis_agent",
+                f"docked {hypothesis.drug} into {hypothesis.target} with Vina: "
+                f"{detail['best_affinity']} kcal/mol")
+        except Exception as exc:                       # noqa: BLE001
+            log(state, "analysis_agent", f"real docking failed: {type(exc).__name__}: {exc}")
+    elif smiles:
+        log(state, "analysis_agent",
+            f"no receptor for {hypothesis.target}: using the conformer surrogate")
     computations.append(ComputeResult(
         name="Docking",
         score=dock["score01"],
