@@ -1,0 +1,38 @@
+{
+  "epochs_total": 53,
+  "dataset": "bace_pic50",
+  "title": "BACE-1 binding affinity (pIC50)",
+  "source": "MoleculeNet (DeepChem) BACE dataset - measured IC50 values",
+  "citation": "Subramanian et al. (2016) Computational modeling of beta-secretase 1 (BACE-1) inhibitors. Packaged by Wu et al. (2018), MoleculeNet, Chem. Sci. 9:513-530.",
+  "url": "https://deepchemdata.s3-us-west-1.amazonaws.com/datasets/bace.csv",
+  "dataset_sha256": "3ca3115f7841a0562b7cd3e2ef5626a89ac56a648842e9eb6880211711f5c4e1",
+  "task": "regression",
+  "target": "BACE-1 pIC50",
+  "target_units": "pIC50 (-log10 IC50, M)",
+  "molecules": 1513,
+  "split": {
+    "train": 1061,
+    "val": 226,
+    "test": 226
+  },
+  "epochs": 20,
+  "hidden": 32,
+  "seed": 7,
+  "target_mean": 6.5523,
+  "target_std": 1.3414,
+  "val": {
+    "mae": 0.7912,
+    "rmse": 0.9715,
+    "r2": 0.435,
+    "n": 226
+  },
+  "test": {
+    "mae": 0.8595,
+    "rmse": 1.0535,
+    "r2": 0.4229,
+    "n": 226
+  },
+  "trained_at": "2026-11-09 05:45:10",
+  "train_seconds": 189.1,
+  "val_mae": 0.7912
+}

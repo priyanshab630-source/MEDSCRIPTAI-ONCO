@@ -1,0 +1,6 @@
+{
+  "molecules": [
+    {"molecule_chembl_id": "CHEMBL3989336", "molecule_structures": {"canonical_smiles": "Nc1nc(N2CCNCC2)c2cc(Cl)ccc2n1"}},
+    {"molecule_chembl_id": "CHEMBL4216357", "molecule_structures": {"canonical_smiles": "CC(C)(C)c1cc(Nc2ncc(C#N)c(Nc3ccc(CN4CCOCC4)cc3)n2)cc(Cl)c1"}}
+  ]
+}

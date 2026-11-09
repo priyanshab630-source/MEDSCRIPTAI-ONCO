@@ -24,7 +24,8 @@ from src.tools import gnn as numpy_gnn
 from src.tools import smiles as smiles_tool
 
 HIDDEN = 32
-CHECKPOINT = config.ROOT / "models" / "gnn.pt"
+CHECKPOINT = (pathlib.Path(config.GNN_CHECKPOINT) if config.GNN_CHECKPOINT
+              else config.ROOT / "models" / "gnn.pt")
 METADATA = config.ROOT / "models" / "gnn.json"
 LEGACY_CHECKPOINT = config.ROOT / "models" / "gnn_logp.pt"   # proxy-task checkpoint
 

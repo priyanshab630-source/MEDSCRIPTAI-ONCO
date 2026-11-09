@@ -25,17 +25,22 @@ def test_embedding_is_learned_and_fixed_size():
     assert any(abs(v) > 0 for v in vector)
 
 
-def test_predict_property_is_close_to_the_proxy_target():
+def test_prediction_matches_the_checkpoints_own_task():
+    """The head predicts whatever the checkpoint was trained on - not MolLogP."""
     model = gnn_torch.load()
     if model is None:
         pytest.skip("no trained checkpoint")
-    from rdkit import Chem
-    from rdkit.Chem import Descriptors
 
+    info = gnn_torch.metadata()
     predicted = gnn_torch.predict_property("CC(=O)Oc1ccccc1C(=O)O", model)
-    actual = Descriptors.MolLogP(Chem.MolFromSmiles("CC(=O)Oc1ccccc1C(=O)O"))
-    # A 33-molecule toy task: assert the right ballpark, not accuracy.
-    assert abs(predicted - actual) < 3.0
+    assert isinstance(predicted, float)
+
+    if info.get("task") == "regression":
+        mean = info.get("target_mean", 0.0)
+        std = info.get("target_std", 1.0)
+        # a prediction outside ±5 training spreads means the model is broken
+        assert abs(predicted - mean) < 5 * std
+    assert info.get("dataset"), "metadata must record the training dataset"
 
 
 def test_report_says_which_gnn_answered():

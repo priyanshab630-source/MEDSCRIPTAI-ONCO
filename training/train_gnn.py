@@ -136,6 +136,8 @@ def main(argv=None) -> int:
     parser.add_argument("--batch-size", type=int, default=16)
     parser.add_argument("--seed", type=int, default=7)
     parser.add_argument("--out", default=str(DEFAULT_OUT))
+    parser.add_argument("--resume", action="store_true",
+                        help="continue from the checkpoint at --out if it exists")
     args = parser.parse_args(argv)
 
     try:
@@ -181,6 +183,9 @@ def main(argv=None) -> int:
     random.seed(args.seed)
     torch.manual_seed(args.seed)
     model = gnn_torch.build_model(args.hidden)
+    if args.resume and Path(args.out).exists():
+        model.load_state_dict(torch.load(args.out, map_location="cpu"))
+        print(f"resumed from {args.out}")
     optimiser = torch.optim.Adam(model.parameters(), lr=args.lr)
     loss_fn = torch.nn.BCEWithLogitsLoss() if task == "classification" \
         else torch.nn.MSELoss()
@@ -215,7 +220,14 @@ def main(argv=None) -> int:
 
     Path(args.out).parent.mkdir(parents=True, exist_ok=True)
     torch.save(model.state_dict(), args.out)
+    previous = {}
+    if args.resume:
+        previous_path = gnn_torch.metadata_for(args.out)
+        if previous_path.exists():
+            previous = json.loads(previous_path.read_text(encoding="utf-8"))
+
     metadata = {
+        "epochs_total": int(previous.get("epochs_total", 0)) + args.epochs,
         "dataset": provenance["name"],
         "title": provenance.get("title"),
         "source": provenance.get("source"),

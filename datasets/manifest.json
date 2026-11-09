@@ -57,6 +57,25 @@
       "sha256": "",
       "downloaded_at": null,
       "notes": "Not committed (larger file). Fetch with `python scripts/fetch_datasets.py --fetch qm7`."
+    },
+    {
+      "name": "bace_pic50",
+      "title": "BACE-1 binding affinity (pIC50)",
+      "file": "data/datasets/bace.csv",
+      "rows": 1513,
+      "task": "regression",
+      "smiles_column": "smiles",
+      "target_column": "pIC50",
+      "target_units": "pIC50 (-log10 IC50, M)",
+      "target_label": "BACE-1 pIC50",
+      "source": "MoleculeNet (DeepChem) BACE dataset - measured IC50 values",
+      "url": "https://deepchemdata.s3-us-west-1.amazonaws.com/datasets/bace.csv",
+      "citation": "Subramanian et al. (2016) Computational modeling of beta-secretase 1 (BACE-1) inhibitors. Packaged by Wu et al. (2018), MoleculeNet, Chem. Sci. 9:513-530.",
+      "license": "Public research data redistributed by the MoleculeNet authors.",
+      "sha256": "3ca3115f7841a0562b7cd3e2ef5626a89ac56a648842e9eb6880211711f5c4e1",
+      "downloaded_at": "2026-11-08",
+      "notes": "Real measured binding affinity (pIC50 = -log10 IC50) for 1513 compounds against BACE-1. This is the affinity dataset the GNN is trained on; the same file also carries binary inhibition labels.",
+      "bytes": 117507
     }
   ],
   "kaggle": {

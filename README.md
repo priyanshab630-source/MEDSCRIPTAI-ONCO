@@ -382,9 +382,16 @@ python scripts/fetch_datasets.py --fetch qm7  # fetch an optional extra
 |---|---|---|---|---|
 | `esol` | regression | 1,128 | measured aqueous solubility | MoleculeNet / Delaney 2004 |
 | `bace` | classification | 1,513 | BACE-1 inhibition class | MoleculeNet / Subramanian 2016 |
+| `bace_pic50` | regression | 1,513 | BACE-1 **pIC50** (measured affinity) | MoleculeNet / Subramanian 2016 |
+| ChEMBL | regression | yours | pChEMBL for any target | `scripts/fetch_chembl.py --target PTPN11` |
 
-The committed checkpoint is trained on **ESOL**: test MAE **0.736** log units,
-RMSE 0.969, R² 0.754 on 169 held-out molecules. Kaggle is wired through the
+Two checkpoints ship: the default **ESOL** encoder (test MAE **0.736** log units,
+R² 0.754) and an **affinity** encoder trained on 1,513 measured BACE-1 IC50 values
+(test MAE **0.860** pIC50 units, R² 0.423), selectable with
+`GNN_CHECKPOINT=models/gnn_affinity.pt`. ChEMBL is wired through
+`scripts/fetch_chembl.py` (target → activities → SMILES → manifest); that host is
+unreachable from this build sandbox, so the client is tested against recorded
+responses and runs for real on your machine. Kaggle is wired through the
 official CLI (`--kaggle <owner/slug>`) but no Kaggle data is bundled — that host
 was unreachable from the build environment, and each Kaggle dataset carries its
 own licence. Full details, including how to add your own CSV, are in
@@ -394,7 +401,7 @@ own licence. Full details, including how to add your own CSV, are in
 
 | Component | Algorithm | Trained on | What it buys |
 |---|---|---|---|
-| Molecular GNN | 2-layer message-passing GNN (mean aggregation, tanh, mean pooling) + MLP head, Adam, MSE / BCE | **1,128 molecules, ESOL measured solubility** (test MAE 0.736, R² 0.754) | A learned molecular embedding, used by the affinity readout |
+| Molecular GNN | 2-layer message-passing GNN (mean aggregation, tanh, mean pooling) + MLP head, Adam, MSE / BCE | **ESOL: 1,128 measured solubilities** (test MAE 0.736, R² 0.754) · **BACE-1: 1,513 measured IC50s** (MAE 0.860, R² 0.423) | A learned molecular embedding, used by the affinity readout |
 | Uncertainty | **Monte-Carlo dropout** — 25 seeded stochastic forward passes; std ÷ training spread → `model_reliability` | the same checkpoint | Replaces the hardcoded 0.45 penalty with a measured number (ethanol 0.33, benzene 0.06) |
 | Tool policy | **REINFORCE** (policy gradient) with a moving-average baseline; 11-feature state → masked softmax over 5 tools | 200–300 episodes against the live tool environment | Learns *which* evidence to gather instead of a hardcoded order; mean return 0.85 |
 | Verdict writer | **SFT** (LoRA, `--tiny` smoke mode) then **DPO** (reference-model preference objective, β = 0.1) | reports → chosen structured verdict vs. rejected collapsed-confidence answer | Teaches the four-way format and the abstention habit |

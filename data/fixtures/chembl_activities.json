@@ -1,0 +1,8 @@
+{
+  "activities": [
+    {"molecule_chembl_id": "CHEMBL3989336", "standard_type": "IC50", "standard_value": "71.0", "standard_units": "nM", "pchembl_value": "7.15"},
+    {"molecule_chembl_id": "CHEMBL4216357", "standard_type": "IC50", "standard_value": "11.0", "standard_units": "nM", "pchembl_value": "7.96"},
+    {"molecule_chembl_id": "CHEMBL4594202", "standard_type": "IC50", "standard_value": null, "standard_units": "nM", "pchembl_value": null}
+  ],
+  "page_meta": {"next": null}
+}

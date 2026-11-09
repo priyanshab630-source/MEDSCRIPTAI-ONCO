@@ -43,6 +43,51 @@ upstream terms before republishing them elsewhere.
 python scripts/fetch_datasets.py --fetch qm7
 ```
 
+## ChEMBL (real bioactivity, fetched by you)
+
+`scripts/fetch_chembl.py` talks to the ChEMBL REST API directly — target resolution,
+paged activity retrieval, canonical SMILES joining, then a CSV plus a manifest entry:
+
+```bash
+python scripts/fetch_chembl.py --target PTPN11 --name chembl_shp2      # SHP2
+python scripts/fetch_chembl.py --target EGFR --type IC50 --limit 2000
+python scripts/fetch_chembl.py --chembl-id CHEMBL3351120 --name chembl_x
+python training/train_gnn.py --dataset chembl_shp2 --epochs 40
+```
+
+It records the target ChEMBL id, assay type, retrieval date, row count and SHA-256,
+and notes the licence (**ChEMBL is CC BY-SA 4.0** — attribute and share alike).
+
+This build sandbox cannot reach `www.ebi.ac.uk`, so the fetcher is tested against
+recorded responses in `data/fixtures/chembl_*.json` rather than a live call. On a
+machine with normal network access the same command performs the real download.
+
+## Affinity data that does ship: BACE-1 pIC50
+
+`bace_pic50` is a regression entry over the same bundled BACE file: **1,513 measured
+IC50 values** converted to pChEMBL (pIC50 = −log₁₀ IC50, range 2.54–10.52). That is
+real binding affinity, and it is what the affinity checkpoint below is trained on.
+
+```bash
+python training/train_gnn.py --dataset bace_pic50 --epochs 40 --out models/gnn_affinity.pt
+```
+
+## Two checkpoints
+
+| Checkpoint | Trained on | Held-out | Use |
+|---|---|---|---|
+| `models/gnn.pt` (default) | ESOL, 1,128 solubilities | MAE 0.736, R² 0.754 | broad, drug-like chemical encoder |
+| `models/gnn_affinity.pt` | BACE-1 pIC50, 1,513 IC50s | MAE 0.860, RMSE 1.054, R² 0.423 | affinity-trained encoder |
+
+```bash
+GNN_CHECKPOINT=models/gnn_affinity.pt uvicorn api.app:app --port 8000
+```
+
+The affinity encoder is specialised to BACE-1, so it reports high epistemic
+uncertainty on unrelated chemistry (a SHP2 inhibitor scores 0.85 on MC dropout,
+versus 0.02 under the broader ESOL encoder) — which is the uncertainty model
+behaving correctly, and the reason the ESOL encoder stays the default.
+
 ## Kaggle
 
 Kaggle needs your own API token, and the environment this repo was built in could

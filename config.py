@@ -28,6 +28,11 @@ NEO4J_PASSWORD = os.getenv("NEO4J_PASSWORD", "")
 # shim in src/core/graph.py is used. Same nodes, same edges, same result.
 USE_LANGGRAPH = os.getenv("USE_LANGGRAPH", "0") in ("1", "true", "yes")
 
+# ---------- Learned components ----------
+# Which GNN checkpoint the pipeline loads. Defaults to the broad ESOL-trained
+# encoder; set GNN_CHECKPOINT=models/gnn_affinity.pt for the BACE-1 affinity model.
+GNN_CHECKPOINT = os.getenv("GNN_CHECKPOINT", "")
+
 # ---------- Observability ----------
 # Local JSONL traces are always written; LangSmith / Langfuse are opt-in.
 TRACE_DIR = Path(os.getenv("TRACE_DIR", str(ROOT / "traces")))
