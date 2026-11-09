@@ -20,7 +20,7 @@ from pathlib import Path
 import time
 
 from fastapi import FastAPI, HTTPException, Query
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
@@ -30,6 +30,8 @@ from src.core.engine import engine_name
 from src.core.schemas import Hypothesis
 from src.core import tracing
 from src.tools import datasets as dataset_tools
+from src.tools import render_svg
+from src.tools import scene as scene_tools
 from src.tools import docking, drugs as drug_lookup, gnn_torch, llm, policy, qsar
 from src.tools import react_agent
 
@@ -131,6 +133,158 @@ def list_tools():
             "literature_search": "curated literature corpus (optionally live Europe PMC)",
         },
     }
+
+
+# ---------------------------------------------------------------- docking ----
+DOCKING_RUN = config.ROOT / "runs" / "4ajl"
+
+
+def _docking_report() -> dict:
+    path = DOCKING_RUN / "report.json"
+    if not path.exists():
+        return {"available": False,
+                "hint": "run: python scripts/run_docking.py --receptor "
+                        "data/docking/4ajl/4ajl_pocket.pdb --ligand "
+                        "data/docking/4ajl/4ajl_ligand.mol2 --out runs/4ajl"}
+    report = json.loads(path.read_text(encoding="utf-8"))
+    report["available"] = True
+    return report
+
+
+@app.get("/docking")
+def docking_report():
+    """Docking scores, interactions and the PLIP cross-check."""
+    report = _docking_report()
+    if not report.get("available"):
+        return report
+    return {
+        "available": True,
+        "ligand": report.get("ligand"),
+        "receptor": report.get("receptor"),
+        "engine": report.get("engine"),
+        "poses": report.get("poses", [])[:9],
+        "crystal_pose_score": report.get("crystal_pose_score"),
+        "redocking_rmsd": report.get("redocking_rmsd"),
+        "box_centre": report.get("box_centre"),
+        "box_size": report.get("box_size"),
+        "exhaustiveness": report.get("exhaustiveness"),
+        "own_analysis": {"counts": report.get("counts", {}),
+                         "residues": report.get("binding_site_residues", []),
+                         "hydrogen_bonds": report.get("hydrogen_bonds", []),
+                         "hydrophobic_contacts": report.get("hydrophobic_contacts", []),
+                         "salt_bridges": report.get("salt_bridges", [])},
+        "plip": report.get("plip", {}),
+    }
+
+
+@app.get("/docking/view", response_class=HTMLResponse)
+def docking_view():
+    """Server-rendered docking page: the pose, the scores, both interaction tables.
+
+    No JavaScript, so it prints cleanly and a headless renderer can screenshot it.
+    """
+    report = _docking_report()
+    if not report.get("available"):
+        return HTMLResponse(f"<pre>{report.get('hint', 'no run')}</pre>", status_code=404)
+
+    scene = scene_tools.build_scene(DOCKING_RUN / "complex.pdb", report)
+    svg = render_svg.render(scene)
+
+    own = report.get("counts", {})
+    plip = report.get("plip", {}) or {}
+    plip_counts = plip.get("counts", {})
+
+    def rows(items, columns):
+        out = []
+        for item in items[:10]:
+            cells = "".join(f"<td>{item.get(column, '')}</td>" for column in columns)
+            out.append(f"<tr>{cells}</tr>")
+        return "".join(out) or '<tr><td colspan="4" class="muted">none</td></tr>'
+
+    pose_rows = "".join(
+        f"<tr><td>{index}</td><td class='num'>{pose[0]}</td></tr>"
+        for index, pose in enumerate(report.get("poses", [])[:5], start=1))
+
+    plip_hbonds = rows(plip.get("hydrogen_bonds", []),
+                       ("residue", "donor", "acceptor", "distance"))
+    plip_hydro = rows(plip.get("hydrophobic_contacts", []), ("residue", "distance"))
+    own_hbonds = rows(report.get("hydrogen_bonds", []),
+                      ("residue", "ligand_atom", "protein_atom", "distance"))
+
+    html = f"""<!doctype html><html><head><meta charset="utf-8">
+<title>Docking — {report.get('ligand')}</title><style>
+body{{margin:0;background:#070d16;color:#e8eef7;font:15px/1.5 -apple-system,Segoe UI,Roboto,sans-serif}}
+.wrap{{max-width:1180px;margin:0 auto;padding:28px 32px 48px}}
+h1{{font-size:26px;margin:0 0 4px}} h2{{font-size:15px;letter-spacing:.10em;text-transform:uppercase;
+color:#4da3ff;margin:26px 0 10px;font-weight:600}}
+.sub{{color:#8fa3bf;font-size:13px;margin-bottom:18px}}
+.grid{{display:flex;gap:22px;align-items:flex-start}} .grid>.card:first-child{{flex:1.5}}
+.grid>.card:last-child{{flex:1}}
+.card{{background:#101c2d;border:1px solid #22334d;border-radius:12px;padding:16px;flex:1;min-width:0}}
+.kpis{{display:flex;gap:12px;margin-bottom:16px}} .kpi{{flex:1}}
+.kpi{{background:#101c2d;border:1px solid #22334d;border-radius:10px;padding:12px 14px}}
+.kpi .label{{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:#8fa3bf}}
+.kpi .value{{font-size:24px;font-weight:600;margin-top:4px}}
+table{{width:100%;border-collapse:collapse;font-size:13px}}
+th{{text-align:left;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:#8fa3bf;
+padding:6px 8px;border-bottom:1px solid #22334d}}
+td{{padding:5px 8px;border-bottom:1px solid #16233a;color:#c9d6e6}}
+td.num{{text-align:right;font-variant-numeric:tabular-nums;color:#e8eef7}}
+.muted{{color:#63798f}} .ok{{color:#3ddc97}}
+.badge{{display:inline-block;padding:2px 9px;border-radius:99px;font-size:11px;
+background:#12324a;color:#7cc4ff;margin-left:6px}}
+</style></head><body><div class="wrap">
+<h1>Docking — {report.get('ligand')} into {Path(report.get('receptor', '')).name}</h1>
+<div class="sub">{report.get('engine')} · box {report.get('box_size')} Å at
+{report.get('box_centre')} · exhaustiveness {report.get('exhaustiveness')}</div>
+
+<div class="kpis">
+  <div class="kpi"><div class="label">best pose</div>
+    <div class="value">{report['poses'][0][0]} <span class="muted" style="font-size:13px">kcal/mol</span></div></div>
+  <div class="kpi"><div class="label">redocking RMSD</div>
+    <div class="value ok">{report.get('redocking_rmsd')} <span class="muted" style="font-size:13px">Å</span></div></div>
+  <div class="kpi"><div class="label">PLIP H-bonds</div>
+    <div class="value">{plip_counts.get('hydrogen_bonds', 0)}</div></div>
+</div>
+
+<div class="grid">
+  <div class="card">{svg}</div>
+  <div class="card">
+    <h2 style="margin-top:0">Poses</h2>
+    <table><tr><th>pose</th><th style="text-align:right">affinity</th></tr>{pose_rows}</table>
+    <p class="muted" style="font-size:12px">Crystal pose scores
+      {report.get('crystal_pose_score')} kcal/mol.</p>
+  </div>
+</div>
+
+<h2>Interactions — PLIP <span class="badge">reference engine</span></h2>
+<div class="grid">
+  <div class="card"><h2 style="margin-top:0">Hydrogen bonds</h2>
+    <table><tr><th>residue</th><th>donor</th><th>acceptor</th><th>dist (Å)</th></tr>{plip_hbonds}</table></div>
+  <div class="card"><h2 style="margin-top:0">Hydrophobic contacts</h2>
+    <table><tr><th>residue</th><th>dist (Å)</th></tr>{plip_hydro}</table></div>
+</div>
+
+<h2>Interactions — built-in geometric analyser</h2>
+<div class="card">
+  <table><tr><th>residue</th><th>ligand atom</th><th>protein atom</th><th>dist (Å)</th></tr>{own_hbonds}</table>
+  <p class="muted" style="font-size:12px">The built-in analyser uses plain heavy-atom cutoffs
+  ({own.get('hydrogen_bonds', 0)} H-bonds, {own.get('hydrophobic_contacts', 0)} hydrophobic,
+  {own.get('binding_site_residues', 0)} residues), so it is more permissive than PLIP's
+  angle-aware criteria. Both are shown rather than picking the flattering one.</p>
+</div>
+</div></body></html>"""
+    return HTMLResponse(html)
+
+
+@app.get("/docking/scene")
+def docking_scene():
+    """Geometry for the in-browser 3D viewer."""
+    report = _docking_report()
+    complex_pdb = DOCKING_RUN / "complex.pdb"
+    if not report.get("available") or not complex_pdb.exists():
+        raise HTTPException(status_code=404, detail="no docking run available")
+    return scene_tools.build_scene(complex_pdb, report)
 
 
 @app.get("/datasets")

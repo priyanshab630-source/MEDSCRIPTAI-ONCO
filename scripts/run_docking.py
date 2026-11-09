@@ -33,7 +33,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from src.tools import interactions  # noqa: E402
+from src.tools import interactions, plip_adapter  # noqa: E402
 
 ELEMENT_MAP = {"A": "C", "OA": "O", "NA": "N", "SA": "S", "HD": "H", "HS": "H"}
 
@@ -278,6 +278,9 @@ def main(argv=None) -> int:
     parser.add_argument("--n-poses", type=int, default=9)
     parser.add_argument("--crystal-ligand", help="crystal ligand, to compute redocking RMSD")
     parser.add_argument("--seed", type=int, default=42)
+    parser.add_argument("--plip", dest="plip", action="store_true", default=None,
+                        help="also profile interactions with PLIP")
+    parser.add_argument("--no-plip", dest="plip", action="store_false")
     args = parser.parse_args(argv)
 
     out_dir = Path(args.out)
@@ -328,6 +331,12 @@ def main(argv=None) -> int:
         rmsd = redocking_rmsd(complex_pdb, Path(args.crystal_ligand))
         report["redocking_rmsd"] = None if rmsd != rmsd else rmsd
 
+    use_plip = plip_adapter.available() if args.plip is None else args.plip
+    if use_plip:
+        print("    profiling with PLIP")
+        report["plip"] = plip_adapter.analyse(complex_pdb, out_dir / "plip")
+        print("   ", plip_adapter.summary_line(report["plip"]))
+
     print("6/6 writing reports and viewer scripts")
     (out_dir / "report.json").write_text(json.dumps(report, indent=2) + "\n")
     markdown_report(report, out_dir / "report.md")
@@ -335,6 +344,8 @@ def main(argv=None) -> int:
     chimerax_script(complex_pdb, report, out_dir / "view.cxc")
 
     print("\n" + interactions.summary_line(report))
+    if report.get("plip"):
+        print(plip_adapter.summary_line(report["plip"]))
     print(f"binding site: {', '.join(report['binding_site_residues'][:12])}")
     if report["redocking_rmsd"] is not None:
         print(f"redocking RMSD: {report['redocking_rmsd']} A")

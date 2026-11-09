@@ -16,3 +16,13 @@ traces/
 reports/
 training/data/
 training/checkpoints/
+
+# keep the sample docking run, ignore others
+runs/*
+!runs/4ajl/
+!runs/4ajl/report.json
+!runs/4ajl/report.md
+!runs/4ajl/complex.pdb
+!runs/4ajl/poses.pdbqt
+!runs/4ajl/view.pml
+!runs/4ajl/view.cxc

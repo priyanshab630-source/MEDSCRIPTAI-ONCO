@@ -211,6 +211,7 @@
         <button data-panel="evidence">Evidence</button>
         <button data-panel="trace">Agent trace</button>
         <button data-panel="models">Models &amp; DL</button>
+        <button data-panel="docking">Docking</button>
         <button data-panel="datasets">Datasets</button>
         <button data-panel="calibration">Calibration</button>
         <button data-panel="compare">Compare</button>
@@ -280,6 +281,34 @@
             </div>
             <div id="mc-body" style="margin-top:12px"></div>
           </div>
+        </div>
+      </section>
+
+      <section class="panel" id="panel-docking">
+        <div class="card">
+          <div class="row"><h3 style="margin:0">Docked pose</h3>
+            <div class="spacer"></div>
+            <span class="tag" id="dock-engine">—</span>
+            <span class="tag" id="dock-rmsd">—</span>
+            <button class="btn ghost" id="dock-reset">Reset view</button></div>
+          <div style="display:flex;gap:16px;align-items:flex-start;margin-top:12px">
+            <canvas id="pose-canvas" width="820" height="520"
+              style="flex:1.6;min-width:0;background:#0a1420;border:1px solid var(--line);
+                     border-radius:12px;cursor:grab"></canvas>
+            <div style="flex:1;min-width:0">
+              <div id="dock-kpis"></div>
+              <div class="note" style="margin-top:10px">
+                drag to rotate · scroll to zoom · ligand in yellow, interacting residues in
+                green, hydrogen bonds dashed
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="card" style="margin-top:16px">
+          <div class="row"><h3 style="margin:0">Interactions</h3>
+            <div class="spacer"></div>
+            <span class="tag">PLIP</span><span class="tag">built-in</span></div>
+          <div id="dock-interactions"><div class="empty">Loading…</div></div>
         </div>
       </section>
 
@@ -619,6 +648,152 @@ async function runMcDropout() {
 }
 
 /* --------------------------------------------------------------- calibration */
+let dockScene = null, dockAngle = -0.55, dockPitch = 0.32, dockZoom = 1;
+
+function drawPose() {
+  const canvas = $("pose-canvas");
+  if (!canvas || !dockScene) return;
+  const ctx = canvas.getContext("2d");
+  const W = canvas.width, H = canvas.height;
+  ctx.clearRect(0, 0, W, H);
+  const centre = dockScene.centre;
+  const rot = (p) => {
+    let [x, y, z] = [p[0] - centre[0], p[1] - centre[1], p[2] - centre[2]];
+    const cy = Math.cos(dockAngle), sy = Math.sin(dockAngle);
+    [x, z] = [x * cy - z * sy, x * sy + z * cy];
+    const cp = Math.cos(dockPitch), sp = Math.sin(dockPitch);
+    [y, z] = [y * cp - z * sp, y * sp + z * cp];
+    return [x, y, z];
+  };
+  const projected = [];
+  const push = (kind, atom) => {
+    const r = rot([atom.x, atom.y, atom.z]);
+    projected.push({ kind, atom, r });
+  };
+  dockScene.protein.forEach((a) => push("protein", a));
+  dockScene.ligand.forEach((a) => push("ligand", a));
+  const span = Math.max(...projected.map((p) => Math.max(Math.abs(p.r[0]), Math.abs(p.r[1]))), 1);
+  const scale = (Math.min(W, H) * 0.42 / span) * dockZoom;
+  const depth = projected.map((p) => p.r[2]);
+  const low = Math.min(...depth), high = Math.max(...depth);
+  const px = (r) => W / 2 + r[0] * scale;
+  const py = (r) => H / 2 - r[1] * scale;
+
+  projected.sort((a, b) => a.r[2] - b.r[2]).forEach(({ kind, atom, r }) => {
+    const fade = 0.3 + 0.65 * ((r[2] - low) / (high - low || 1));
+    ctx.beginPath();
+    if (kind === "protein") {
+      ctx.fillStyle = atom.kind === "interacting"
+        ? `rgba(61,220,151,${fade})` : `rgba(120,160,200,${fade * 0.55})`;
+      ctx.arc(px(r), py(r), atom.kind === "interacting" ? 3 : 2.1, 0, 6.2832);
+    } else {
+      ctx.fillStyle = "#f5d76e";
+      ctx.arc(px(r), py(r), 4, 0, 6.2832);
+    }
+    ctx.fill();
+  });
+
+  ctx.strokeStyle = "#f5d76e";
+  ctx.lineWidth = 2.4;
+  ctx.lineCap = "round";
+  dockScene.bonds.forEach(([i, j]) => {
+    const a = rot([dockScene.ligand[i].x, dockScene.ligand[i].y, dockScene.ligand[i].z]);
+    const b = rot([dockScene.ligand[j].x, dockScene.ligand[j].y, dockScene.ligand[j].z]);
+    ctx.beginPath(); ctx.moveTo(px(a), py(a)); ctx.lineTo(px(b), py(b)); ctx.stroke();
+  });
+
+  ctx.setLineDash([5, 5]);
+  ctx.strokeStyle = "#ff8fa3";
+  ctx.lineWidth = 1.6;
+  dockScene.hbonds.forEach((bond) => {
+    const a = rot(bond.from), b = rot(bond.to);
+    ctx.beginPath(); ctx.moveTo(px(a), py(a)); ctx.lineTo(px(b), py(b)); ctx.stroke();
+  });
+  ctx.setLineDash([]);
+
+  ctx.fillStyle = "#9fd8c0";
+  ctx.font = "11px ui-monospace, monospace";
+  dockScene.labels.slice(0, 12).forEach((label) => {
+    const r = rot([label.x, label.y, label.z]);
+    ctx.fillText(label.text, px(r) + 6, py(r) - 4);
+  });
+
+  ctx.fillStyle = "#5f7f9e";
+  ctx.font = "11px ui-monospace, monospace";
+  ctx.fillText(`protein ${dockScene.counts.protein_atoms} · ligand ${dockScene.counts.ligand_atoms}`
+    + ` · ${dockScene.counts.hbonds} H-bonds`, 14, H - 12);
+}
+
+async function loadDocking() {
+  try {
+    const data = await api("/docking");
+    if (!data.available) {
+      $("dock-interactions").innerHTML =
+        `<div class="empty">${data.hint || "no docking run yet"}</div>`;
+      return;
+    }
+    $("dock-engine").textContent = data.engine || "AutoDock Vina";
+    $("dock-rmsd").textContent = data.redocking_rmsd !== null
+      ? `redocking ${data.redocking_rmsd} Å` : "no redocking check";
+    $("dock-kpis").innerHTML = `
+      <div class="kpi" style="margin-bottom:8px"><div class="label">best pose</div>
+        <div class="value">${data.poses[0][0]} kcal/mol</div></div>
+      <div class="kpi" style="margin-bottom:8px"><div class="label">crystal pose</div>
+        <div class="value">${data.crystal_pose_score} kcal/mol</div></div>
+      <div class="kpi"><div class="label">binding site</div>
+        <div class="value" style="font-size:15px">${data.own_analysis.residues.length} residues</div></div>`;
+
+    const plip = data.plip || {};
+    const pc = plip.counts || {}, oc = data.own_analysis.counts || {};
+    const row = (label, a, b) => `<tr><td>${label}</td><td class="mono">${a}</td>
+      <td class="mono">${b}</td></tr>`;
+    $("dock-interactions").innerHTML = `
+      <table style="margin-bottom:12px">
+        <tr><th>interaction</th><th>PLIP</th><th>built-in</th></tr>
+        ${row("hydrogen bonds", pc.hydrogen_bonds ?? 0, oc.hydrogen_bonds ?? 0)}
+        ${row("hydrophobic", pc.hydrophobic_contacts ?? 0, oc.hydrophobic_contacts ?? 0)}
+        ${row("salt bridges", pc.salt_bridges ?? 0, oc.salt_bridges ?? 0)}
+        ${row("pi-stacks", pc.pi_stacks ?? 0, oc.pi_stacks ?? 0)}
+        ${row("binding-site residues", pc.binding_site_residues ?? 0, oc.binding_site_residues ?? 0)}
+      </table>
+      <div class="note">PLIP applies angle-aware criteria; the built-in analyser uses plain
+        heavy-atom cutoffs, so it reports more contacts. Both are shown.</div>
+      <div class="note" style="margin-top:8px">Residues:
+        ${(data.own_analysis.residues || []).slice(0, 14).join(", ")}</div>`;
+
+    dockScene = await api("/docking/scene");
+    drawPose();
+  } catch (error) {
+    $("dock-interactions").innerHTML = `<div class="empty neg">${error.message}</div>`;
+  }
+}
+
+function bindPoseCanvas() {
+  const canvas = $("pose-canvas");
+  if (!canvas) return;
+  let dragging = false, lastX = 0, lastY = 0;
+  canvas.addEventListener("mousedown", (event) => {
+    dragging = true; lastX = event.clientX; lastY = event.clientY;
+    canvas.style.cursor = "grabbing";
+  });
+  window.addEventListener("mouseup", () => { dragging = false; canvas.style.cursor = "grab"; });
+  window.addEventListener("mousemove", (event) => {
+    if (!dragging) return;
+    dockAngle += (event.clientX - lastX) * 0.008;
+    dockPitch += (event.clientY - lastY) * 0.008;
+    lastX = event.clientX; lastY = event.clientY;
+    drawPose();
+  });
+  canvas.addEventListener("wheel", (event) => {
+    event.preventDefault();
+    dockZoom = Math.max(0.4, Math.min(3, dockZoom * (event.deltaY > 0 ? 0.92 : 1.08)));
+    drawPose();
+  }, { passive: false });
+  $("dock-reset").addEventListener("click", () => {
+    dockAngle = -0.55; dockPitch = 0.32; dockZoom = 1; drawPose();
+  });
+}
+
 async function loadDatasets() {
   try {
     const data = await api("/datasets");
@@ -767,6 +942,7 @@ function selectTab(name) {
   });
   if (name === "calibration" && $("cal-body").querySelector(".empty")) loadCalibration();
   if (name === "datasets" && $("datasets-body").querySelector(".empty")) loadDatasets();
+  if (name === "docking") { bindPoseCanvas(); if (!dockScene) loadDocking(); }
   if (name === "models" && $("models-body").querySelector(".empty")) loadModels();
 }
 

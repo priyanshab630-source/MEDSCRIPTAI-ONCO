@@ -377,9 +377,12 @@ python scripts/run_docking.py --receptor data/docking/4ajl/4ajl_pocket.pdb \
     --ligand data/docking/4ajl/4ajl_ligand.mol2 --out runs/4ajl --exhaustiveness 8
 ```
 
-AutoDock Vina docks, `src/tools/interactions.py` analyses the pose (H-bonds,
-hydrophobic contacts, salt bridges, π-stacks, binding-site residues), and the script
-writes PyMOL and ChimeraX session scripts plus a JSON/Markdown report. Validated by
+AutoDock Vina docks; `src/tools/interactions.py` analyses the pose (H-bonds,
+hydrophobic contacts, salt bridges, π-stacks, binding-site residues) and
+`src/tools/plip_adapter.py` cross-checks it with PLIP; the script writes PyMOL and
+ChimeraX session scripts plus a JSON/Markdown report. The dashboard's **Docking** tab
+draws the pose in a rotatable canvas and shows both interaction tables side by side;
+`/docking/view` is a printable, JavaScript-free version of the same page. Validated by
 redocking the crystal ligand of PDBbind complex 4AJL: **0.73 Å RMSD**, well inside the
 2.0 Å success threshold. Details in [docs/DOCKING.md](docs/DOCKING.md).
 

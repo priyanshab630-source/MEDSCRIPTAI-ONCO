@@ -1,0 +1,18 @@
+# ChimeraX session for complex.pdb
+#   chimerax --nogui --script view.cxc
+open /scratch/work/medscriptai-onco/runs/4ajl/complex.pdb
+hide atoms
+show cartoon
+color #1 grey
+select #1:UNL
+show sel atoms
+style sel stick
+color sel yellow
+select zone #1:UNL 4.5
+show sel atoms
+style sel stick
+color sel cyan
+hbonds #1 & protein restrict #1:UNL reveal true color red
+label #1 & protein & @CA residues text "{resname}{resseq}" color black
+view #1:UNL
+save docking.png width 1600 height 1200 supersample 3

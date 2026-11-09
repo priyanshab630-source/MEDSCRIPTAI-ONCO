@@ -57,10 +57,28 @@ box, the protonation or the receptor preparation is wrong.
   bond orders and the pose atom order does not match the SMILES it came from
 * **binding-site residues** — any residue with an atom within 5.0 Å of the ligand
 
-PLIP is also wired as an option (`plip -f complex.pdb -x -o report`), but on this
-complex PLIP returned no interactions despite identifying the ligand correctly, which
-is why the built-in analyser is the default: it always produces a number you can
-trace to a distance.
+## PLIP
+
+PLIP is wired in and runs on every docking job (`src/tools/plip_adapter.py`), and the
+dashboard shows both engines side by side. On 4AJL pose 1:
+
+| interaction | PLIP | built-in |
+|---|---|---|
+| hydrogen bonds | 4 | 5 |
+| hydrophobic contacts | 7 | 23 |
+| salt bridges | 0 | 2 |
+| π-stacks | 0 | 0 |
+| binding-site residues | 9 | 18 |
+
+PLIP applies angle-aware criteria (donor–H···acceptor geometry, ring normal angles),
+which is why it is stricter; the built-in analyser uses plain heavy-atom cutoffs and
+therefore over-reports hydrophobic contacts. Both numbers are shown rather than picking
+the flattering one.
+
+One parsing detail that cost an hour: PLIP nests its interaction lists at
+`bindingsite/interactions/hydrogen_bonds`, not `bindingsite/hydrogen_bonds`. Reading the
+shallower path silently returns zeros — a failure that looks exactly like "PLIP found
+nothing".
 
 ## Visualisation
 
