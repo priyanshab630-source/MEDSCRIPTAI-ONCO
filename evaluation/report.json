@@ -15,7 +15,7 @@
     "brier": 0.0676,
     "ece": 0.0924,
     "auroc_uncertainty": 1.0,
-    "spearman_uncertainty_vs_error": 0.1827,
+    "spearman_uncertainty_vs_error": 0.0464,
     "abstention": {
       "abstain_on_unknown": 1.0,
       "abstain_on_labelled": 0.0556
@@ -33,7 +33,7 @@
       "label": "positive",
       "verdict": "SUPPORTED",
       "support_score": 0.7543,
-      "overall_uncertainty": 0.1312,
+      "overall_uncertainty": 0.1234,
       "dominant_dimension": "graph_support",
       "tool_mode": "rl-policy"
     },
@@ -43,8 +43,8 @@
       "label": "positive",
       "verdict": "SUPPORTED",
       "support_score": 0.9048,
-      "overall_uncertainty": 0.081,
-      "dominant_dimension": "computational_agreement",
+      "overall_uncertainty": 0.0591,
+      "dominant_dimension": "assay_consistency",
       "tool_mode": "rl-policy"
     },
     {
@@ -53,7 +53,7 @@
       "label": "positive",
       "verdict": "UNCERTAIN",
       "support_score": 0.2431,
-      "overall_uncertainty": 0.1112,
+      "overall_uncertainty": 0.1085,
       "dominant_dimension": "literature_conflict",
       "tool_mode": "rl-policy"
     },
@@ -63,7 +63,7 @@
       "label": "positive",
       "verdict": "UNCERTAIN",
       "support_score": 0.558,
-      "overall_uncertainty": 0.1373,
+      "overall_uncertainty": 0.117,
       "dominant_dimension": "literature_conflict",
       "tool_mode": "rl-policy"
     },
@@ -73,7 +73,7 @@
       "label": "positive",
       "verdict": "SUPPORTED",
       "support_score": 1.0,
-      "overall_uncertainty": 0.0657,
+      "overall_uncertainty": 0.0699,
       "dominant_dimension": "assay_consistency",
       "tool_mode": "rl-policy"
     },
@@ -83,7 +83,7 @@
       "label": "positive",
       "verdict": "SUPPORTED",
       "support_score": 1.0,
-      "overall_uncertainty": 0.0954,
+      "overall_uncertainty": 0.0973,
       "dominant_dimension": "computational_agreement",
       "tool_mode": "rl-policy"
     },
@@ -93,7 +93,7 @@
       "label": "negative",
       "verdict": "ABSTAIN",
       "support_score": 0.6156,
-      "overall_uncertainty": 0.5738,
+      "overall_uncertainty": 0.5648,
       "dominant_dimension": "graph_support",
       "tool_mode": "rl-policy"
     },
@@ -103,7 +103,7 @@
       "label": "negative",
       "verdict": "UNCERTAIN",
       "support_score": 0.0,
-      "overall_uncertainty": 0.4836,
+      "overall_uncertainty": 0.4738,
       "dominant_dimension": "graph_support",
       "tool_mode": "rl-policy"
     },
@@ -113,7 +113,7 @@
       "label": "negative",
       "verdict": "UNCERTAIN",
       "support_score": 0.0,
-      "overall_uncertainty": 0.4665,
+      "overall_uncertainty": 0.4898,
       "dominant_dimension": "graph_support",
       "tool_mode": "rl-policy"
     },
@@ -123,7 +123,7 @@
       "label": "negative",
       "verdict": "UNCERTAIN",
       "support_score": 0.0,
-      "overall_uncertainty": 0.4728,
+      "overall_uncertainty": 0.5257,
       "dominant_dimension": "graph_support",
       "tool_mode": "rl-policy"
     },
@@ -133,7 +133,7 @@
       "label": "negative",
       "verdict": "UNCERTAIN",
       "support_score": 0.0,
-      "overall_uncertainty": 0.472,
+      "overall_uncertainty": 0.4723,
       "dominant_dimension": "graph_support",
       "tool_mode": "rl-policy"
     },
@@ -143,7 +143,7 @@
       "label": "negative",
       "verdict": "UNCERTAIN",
       "support_score": 0.0,
-      "overall_uncertainty": 0.4703,
+      "overall_uncertainty": 0.4723,
       "dominant_dimension": "graph_support",
       "tool_mode": "rl-policy"
     },
@@ -153,7 +153,7 @@
       "label": "negative",
       "verdict": "UNCERTAIN",
       "support_score": 0.0,
-      "overall_uncertainty": 0.3956,
+      "overall_uncertainty": 0.407,
       "dominant_dimension": "graph_support",
       "tool_mode": "rl-policy"
     },
@@ -163,7 +163,7 @@
       "label": "negative",
       "verdict": "UNCERTAIN",
       "support_score": 0.0,
-      "overall_uncertainty": 0.4791,
+      "overall_uncertainty": 0.4626,
       "dominant_dimension": "graph_support",
       "tool_mode": "rl-policy"
     },
@@ -173,7 +173,7 @@
       "label": "negative",
       "verdict": "UNCERTAIN",
       "support_score": 0.0,
-      "overall_uncertainty": 0.4962,
+      "overall_uncertainty": 0.4828,
       "dominant_dimension": "graph_support",
       "tool_mode": "rl-policy"
     },
@@ -183,7 +183,7 @@
       "label": "negative",
       "verdict": "UNCERTAIN",
       "support_score": 0.0,
-      "overall_uncertainty": 0.4934,
+      "overall_uncertainty": 0.4842,
       "dominant_dimension": "graph_support",
       "tool_mode": "rl-policy"
     },
@@ -193,7 +193,7 @@
       "label": "negative",
       "verdict": "UNCERTAIN",
       "support_score": 0.0,
-      "overall_uncertainty": 0.5235,
+      "overall_uncertainty": 0.5054,
       "dominant_dimension": "graph_support",
       "tool_mode": "rl-policy"
     },
@@ -203,7 +203,7 @@
       "label": "negative",
       "verdict": "UNCERTAIN",
       "support_score": 0.0,
-      "overall_uncertainty": 0.5166,
+      "overall_uncertainty": 0.512,
       "dominant_dimension": "graph_support",
       "tool_mode": "rl-policy"
     },

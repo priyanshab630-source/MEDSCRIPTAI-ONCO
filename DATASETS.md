@@ -16,6 +16,7 @@ python scripts/fetch_datasets.py --verify    # checksum every bundled file
 |---|---|---|---|---|
 | `esol` | regression | 1,128 | measured aqueous solubility (log10 mol/L) | MoleculeNet / Delaney 2004 |
 | `bace` | classification | 1,513 | BACE-1 inhibitor class (0/1) | MoleculeNet / Subramanian 2016 |
+| `chembl_shp2` | regression | 759 | SHP2 (PTPN11) IC50 → pChEMBL | ChEMBL, target CHEMBL3864 |
 
 **ESOL — Delaney aqueous solubility.** 1,128 drug-like molecules with measured
 solubility. Downloaded from the MoleculeNet mirror
@@ -83,7 +84,36 @@ phosphatase-assay hits (natural products, phosphopeptides), not just
 allosteric-site inhibitors. Re-run with a larger export before drawing
 conclusions from a model trained on it.
 
-## Affinity data that does ship: BACE-1 pIC50
+## SHP2 bioactivity from ChEMBL (`chembl_shp2`)
+
+759 compounds with IC50 measurements against SHP2 (PTPN11), target
+`CHEMBL3864`, fetched from the ChEMBL API and cleaned by
+`scripts/import_chembl_activities.py`: exact `=` relations only, ChEMBL's own
+data-validity flags respected, one row per compound (repeated measurements
+collapse to the median pChEMBL, with `n_measurements` kept).
+
+```bash
+python scripts/fetch_datasets.py --check chembl_shp2     # is it the right target?
+python training/train_gnn.py --dataset chembl_shp2 --epochs 40 --out models/gnn_chembl_shp2.pt
+```
+
+**`--check` is the guard this dataset earned.** It measures the closest analogue
+in the file to each known inhibitor of the claimed target, by Morgan fingerprint:
+
+| Reference | Max similarity | Rows above 0.4 |
+|---|---|---|
+| TNO155 | 1.00 | 58 |
+| RMC-4550 | 0.24 | 0 |
+| SHP099 | 0.33 | 0 |
+
+TNO155 is present at pChEMBL 7.96, and 58 compounds sit within 0.4 of it — so the
+target identity holds. What the check also shows is the *shape* of the set: 93% of
+the compounds carry 14 or more carbons, the median is 31 heavy atoms, and only a
+minority are potent. It is an HTS-era SHP2 table dominated by one lipophilic acid
+series, not a curated lead-optimisation set — which is why the median pChEMBL is
+5.42 and why the model's R² on held-out data is 0.265 rather than 0.75.
+
+## Affinity data that also ships: BACE-1 pIC50
 
 `bace_pic50` is a regression entry over the same bundled BACE file: **1,513 measured
 IC50 values** converted to pChEMBL (pIC50 = −log₁₀ IC50, range 2.54–10.52). That is
@@ -99,6 +129,7 @@ python training/train_gnn.py --dataset bace_pic50 --epochs 40 --out models/gnn_a
 |---|---|---|---|
 | `models/gnn.pt` (default) | ESOL, 1,128 solubilities | MAE 0.736, R² 0.754 | broad, drug-like chemical encoder |
 | `models/gnn_affinity.pt` | BACE-1 pIC50, 1,513 IC50s | MAE 0.860, RMSE 1.054, R² 0.423 | affinity-trained encoder |
+| `models/gnn_chembl_shp2.pt` | ChEMBL SHP2, 759 IC50s | MAE 0.662, RMSE 0.923, R² 0.265 | affinity encoder for the project's own case-study target |
 
 ```bash
 GNN_CHECKPOINT=models/gnn_affinity.pt uvicorn api.app:app --port 8000

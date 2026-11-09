@@ -1,0 +1,38 @@
+{
+  "epochs_total": 36,
+  "dataset": "chembl_shp2",
+  "title": "SHP2 (PTPN11) bioactivity (IC50)",
+  "source": "ChEMBL API (CHEMBL3864)",
+  "citation": "Mendez et al. (2019) ChEMBL: towards direct deposition of bioassay data. Nucleic Acids Res. 47:D930-D940.",
+  "url": "https://www.ebi.ac.uk/chembl/target_report_card/CHEMBL3864",
+  "dataset_sha256": "cced0841d09a615fa7f6d675553fff6cf333f067b599610e0caa2941d591e51b",
+  "task": "regression",
+  "target": "SHP2 (PTPN11) pChEMBL",
+  "target_units": "pChEMBL (-log10 molar)",
+  "molecules": 759,
+  "split": {
+    "train": 533,
+    "val": 113,
+    "test": 113
+  },
+  "epochs": 20,
+  "hidden": 32,
+  "seed": 7,
+  "target_mean": 5.6328,
+  "target_std": 1.0368,
+  "val": {
+    "mae": 0.578,
+    "rmse": 0.7419,
+    "r2": 0.4776,
+    "n": 113
+  },
+  "test": {
+    "mae": 0.6624,
+    "rmse": 0.9233,
+    "r2": 0.2649,
+    "n": 113
+  },
+  "trained_at": "2026-11-09 06:20:29",
+  "train_seconds": 142.7,
+  "val_mae": 0.578
+}

@@ -177,6 +177,8 @@ def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description="Fetch and verify real datasets")
     parser.add_argument("--list", action="store_true", help="show the manifest")
     parser.add_argument("--verify", action="store_true", help="check checksums")
+    parser.add_argument("--check", metavar="NAME",
+                        help="does this dataset contain known ligands of its target?")
     parser.add_argument("--fetch", metavar="NAME", help="download a manifest dataset")
     parser.add_argument("--kaggle-search", metavar="TERM")
     parser.add_argument("--kaggle", metavar="OWNER/SLUG")
@@ -199,6 +201,14 @@ def main(argv=None) -> int:
 
     if args.verify:
         return verify_all()
+
+    if args.check:
+        report = datasets.ligand_overlap(args.check)
+        print(f"{args.check}: {report.get('verdict', report.get('reason'))}")
+        for ligand, item in (report.get("references") or {}).items():
+            print(f"  closest analogue of {ligand:10s} max similarity "
+                  f"{item['max_similarity']:.2f}  ({item['above_threshold']} rows above 0.4)")
+        return 0 if report.get("verdict", "").startswith("contains") else 1
 
     if args.fetch:
         return fetch(args.fetch)

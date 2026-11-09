@@ -153,6 +153,80 @@ def split(rows: list, val_fraction: float = 0.15, test_fraction: float = 0.15,
             shuffled[:n_test])
 
 
+# Known ligands per target, used to check that a fetched dataset really is about
+# the target it claims. Reference SMILES are the drugs in data/drugs.json plus a
+# few public inhibitors, matched by Morgan fingerprint similarity.
+REFERENCE_LIGANDS = {
+    "SHP2": {
+        "TNO155": "C[C@@H]1OCC2(CCN(c3cnc(Sc4ccnc(N)c4Cl)c(N)n3)CC2)[C@@H]1N",
+        "RMC-4550": "Cc1cc(Nc2nccc(Nc3ccc(CN4CCN(C)CC4)cc3)n2)cc(C)c1",
+        "SHP099": "Nc1nc(N2CCNCC2)c2cc(Cl)ccc2n1",
+    },
+    "KRAS_G12C": {
+        "Sotorasib": "C=CC(=O)N1CCN(c2nc(=O)n(-c3c(C)ccnc3C(C)C)c3nc(-c4c(O)cccc4F)c(F)cc23)[C@@H](C)C1",
+        "Adagrasib": "C=C(F)C(=O)N1CCN(c2nc(OC[C@@H]3CCCN3C)nc3c2CCN(c2cccc4cccc(Cl)c24)C3)C[C@@H]1CC#N",
+    },
+}
+
+
+def ligand_overlap(name: str, target: str = None, threshold: float = 0.4) -> dict:
+    """Does the dataset contain chemistry similar to known ligands of the target?
+
+    A fetched bioactivity table can carry the wrong target id, or a target whose
+    assays are dominated by one chemical series. This measures, for each known
+    ligand of the claimed target, the closest compound in the dataset by Morgan
+    fingerprint similarity. Low maximum similarity across every reference is a
+    signal to check the target id before training on it.
+    """
+    entry = get(name)
+    target = target or entry.get("target_label", "").split()[0]
+    references = None
+    for key, ligands in REFERENCE_LIGANDS.items():
+        if key.lower() in str(entry.get("title", "")).lower() + str(entry.get("target_label", "")).lower() \
+                or key.lower() == target.lower():
+            references = ligands
+            break
+    if not references:
+        return {"name": name, "target": target, "checked": False,
+                "reason": "no reference ligands registered for this target"}
+
+    from rdkit import Chem, RDLogger
+    from rdkit.Chem import AllChem, DataStructs
+    RDLogger.DisableLog("rdApp.*")
+
+    rows = load(name)
+    dataset = []
+    for row in rows:
+        molecule = Chem.MolFromSmiles(row["smiles"])
+        if molecule is not None:
+            dataset.append(AllChem.GetMorganFingerprintAsBitVect(molecule, 2, 2048))
+    if not dataset:
+        return {"name": name, "target": target, "checked": False,
+                "reason": "no parsable molecules"}
+
+    hits = {}
+    for ligand, smiles in references.items():
+        molecule = Chem.MolFromSmiles(smiles)
+        if molecule is None:
+            continue
+        fingerprint = AllChem.GetMorganFingerprintAsBitVect(molecule, 2, 2048)
+        similarities = DataStructs.BulkTanimotoSimilarity(fingerprint, dataset)
+        hits[ligand] = {"max_similarity": round(max(similarities), 3),
+                        "above_threshold": sum(1 for value in similarities
+                                               if value >= threshold)}
+
+    best = max((item["max_similarity"] for item in hits.values()), default=0.0)
+    return {
+        "name": name,
+        "target": target,
+        "checked": True,
+        "references": hits,
+        "best_match": round(best, 3),
+        "verdict": ("contains known chemistry for this target" if best >= threshold
+                    else "no close analogue of a known ligand - check the target id"),
+    }
+
+
 def summary() -> list:
     """Everything the API and the dashboard need to show provenance."""
     out = []

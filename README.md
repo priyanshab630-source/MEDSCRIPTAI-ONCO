@@ -383,12 +383,16 @@ python scripts/fetch_datasets.py --fetch qm7  # fetch an optional extra
 | `esol` | regression | 1,128 | measured aqueous solubility | MoleculeNet / Delaney 2004 |
 | `bace` | classification | 1,513 | BACE-1 inhibition class | MoleculeNet / Subramanian 2016 |
 | `bace_pic50` | regression | 1,513 | BACE-1 **pIC50** (measured affinity) | MoleculeNet / Subramanian 2016 |
-| ChEMBL | regression | yours | pChEMBL for any target | `scripts/fetch_chembl.py --target PTPN11` |
+| `chembl_shp2` | regression | 759 | SHP2 IC50 → pChEMBL | ChEMBL, target CHEMBL3864 |
+| ChEMBL (any target) | regression | yours | pChEMBL | `scripts/fetch_chembl.py --target PTPN11` |
 
-Two checkpoints ship: the default **ESOL** encoder (test MAE **0.736** log units,
-R² 0.754) and an **affinity** encoder trained on 1,513 measured BACE-1 IC50 values
-(test MAE **0.860** pIC50 units, R² 0.423), selectable with
-`GNN_CHECKPOINT=models/gnn_affinity.pt`. ChEMBL is wired through
+Three checkpoints ship: the default **ESOL** encoder (test MAE **0.736** log units,
+R² 0.754), a **BACE-1 affinity** encoder (MAE **0.860** pIC50, R² 0.423) and an
+encoder trained on **759 ChEMBL SHP2 IC50 measurements** for the project's own
+case-study target (MAE **0.662**, R² 0.265), selectable with
+`GNN_CHECKPOINT=models/gnn_chembl_shp2.pt`. `python scripts/fetch_datasets.py
+--check chembl_shp2` verifies a fetched table really contains chemistry for its
+claimed target before you train on it. ChEMBL is wired through
 `scripts/fetch_chembl.py` (target → activities → SMILES → manifest); that host is
 unreachable from this build sandbox, so the client is tested against recorded
 responses and runs for real on your machine. Kaggle is wired through the

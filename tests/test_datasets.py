@@ -70,3 +70,19 @@ def test_summary_feeds_the_api():
     assert esol["loaded_rows"] > 1000
     assert esol["citation"].startswith("Delaney")
     assert len(esol["sha256"]) == 64
+
+
+def test_ligand_overlap_finds_a_known_inhibitor():
+    """The ChEMBL SHP2 table contains TNO155, so the check must say so."""
+    if not datasets.is_available("chembl_shp2"):
+        pytest.skip("chembl_shp2 not present")
+    report = datasets.ligand_overlap("chembl_shp2")
+    assert report["checked"] is True
+    assert report["best_match"] >= 0.9
+    assert report["verdict"].startswith("contains")
+
+
+def test_ligand_overlap_declines_when_no_references_exist():
+    report = datasets.ligand_overlap("esol")
+    assert report["checked"] is False
+    assert "no reference ligands" in report["reason"]

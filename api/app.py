@@ -136,10 +136,15 @@ def list_tools():
 @app.get("/datasets")
 def list_datasets():
     """Every dataset the project trains on, with its provenance."""
-    return {
-        "datasets": dataset_tools.summary(),
-        "gnn_training": gnn_torch.metadata(),
-    }
+    items = dataset_tools.summary()
+    for item in items:
+        if item["available"] and item.get("target"):
+            try:
+                item["ligand_check"] = dataset_tools.ligand_overlap(item["name"])
+            except Exception as exc:              # noqa: BLE001 - never break the page
+                item["ligand_check"] = {"checked": False,
+                                        "reason": f"{type(exc).__name__}: {exc}"}
+    return {"datasets": items, "gnn_training": gnn_torch.metadata()}
 
 
 @app.get("/models")
