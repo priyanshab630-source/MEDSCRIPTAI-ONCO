@@ -20,14 +20,31 @@ RUNS = config.ROOT / "runs" / "docking"
 _CACHE = {}
 
 
-def available(target: str) -> bool:
-    """Real docking is possible when a structure, a box and the toolchain exist."""
+def availability(target: str) -> dict:
+    """Why real docking can or cannot run for this target.
+
+    Three separate things have to be true, and they fail for different reasons, so
+    the caller gets a reason instead of a bare False - otherwise every failure looks
+    like "no receptor", which is what made docking look broken per compound.
+    """
     from src.tools import vina_adapter
 
     if not config.DOCKING_ENABLED:
-        return False
-    return receptors.available(target) and vina_adapter.available() \
-        and vina_adapter.meeko_available()
+        return {"ok": False, "reason": "docking disabled (DOCKING_ENABLED=0)"}
+    if not receptors.available(target):
+        return {"ok": False,
+                "reason": f"no structure for {target} in data/receptors/ "
+                          f"(add {target.lower()}.pdb + {target.lower()}.box.json)"}
+    if not vina_adapter.available():
+        return {"ok": False, "reason": "AutoDock Vina is not installed (pip install vina)"}
+    if not vina_adapter.meeko_available():
+        return {"ok": False, "reason": "Meeko is not installed (pip install meeko)"}
+    return {"ok": True, "reason": "ready"}
+
+
+def available(target: str) -> bool:
+    """Real docking is possible when a structure, a box and the toolchain exist."""
+    return availability(target)["ok"]
 
 
 def _key(target: str, smiles: str) -> str:

@@ -93,6 +93,34 @@ def build_scene(complex_pdb: str | Path, report: dict, radius: float = 13.0) -> 
             "residue": residue,
         })
 
+    # --- backbone trace: consecutive C-alpha atoms, with a break at chain jumps
+    ordered = sorted(near, key=lambda atom: (atom["resnr"].zfill(4), atom["name"]))
+    backbone, seen_residues, previous = [], set(), None
+    for atom in ordered:
+        if atom["name"] != "CA" or atom["resnr"] in seen_residues:
+            continue
+        seen_residues.add(atom["resnr"])
+        point = [round(atom["xyz"][0], 2), round(atom["xyz"][1], 2), round(atom["xyz"][2], 2)]
+        gap = previous is not None and math.dist(point, previous) > 4.5
+        backbone.append({"p": point, "gap": gap,
+                         "hot": atom["resnr"] in interacting})
+        previous = point
+
+    # --- side-chain sticks for the interacting residues only
+    residue_atoms = {}
+    for atom in near:
+        if atom["resnr"] in interacting:
+            residue_atoms.setdefault(atom["resnr"], []).append(atom)
+    sticks = []
+    for resnr, res_atoms in residue_atoms.items():
+        for i, a in enumerate(res_atoms):
+            for b in res_atoms[i + 1:]:
+                limit = COVALENT.get(a["element"], 0.77) + COVALENT.get(b["element"], 0.77) + 0.45
+                if _distance(a, b) <= limit:
+                    sticks.append({"a": [round(v, 2) for v in a["xyz"]],
+                                   "b": [round(v, 2) for v in b["xyz"]],
+                                   "res": f"{a['resname']}{a['resnr']}"})
+
     labels = []
     seen = set()
     for atom in near:
@@ -110,8 +138,11 @@ def build_scene(complex_pdb: str | Path, report: dict, radius: float = 13.0) -> 
         "bonds": bonds,
         "hbonds": hbond_lines,
         "labels": labels,
+        "backbone": backbone,
+        "sticks": sticks,
         "counts": {"protein_atoms": len(atoms), "ligand_atoms": len(ligand_payload),
-                   "bonds": len(bonds), "hbonds": len(hbond_lines)},
+                   "bonds": len(bonds), "hbonds": len(hbond_lines),
+                   "backbone_points": len(backbone), "residue_sticks": len(sticks)},
     }
 
 

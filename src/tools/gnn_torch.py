@@ -137,7 +137,10 @@ def predict_distribution(smiles: str, n_samples: int = 25, model=None,
     The spread is epistemic uncertainty - how much the network disagrees with
     itself about a molecule it has not really seen. It is measured, not assumed.
     """
-    import torch
+    try:
+        import torch
+    except ImportError:
+        return None                       # no torch: no MC dropout, and no crash
 
     model = model or load()
     if model is None:

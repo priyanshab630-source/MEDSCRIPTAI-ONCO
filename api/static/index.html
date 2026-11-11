@@ -680,22 +680,48 @@ function drawPose() {
   const px = (r) => W / 2 + r[0] * scale;
   const py = (r) => H / 2 - r[1] * scale;
 
+  // protein backbone trace
+  if (dockScene.backbone && dockScene.backbone.length) {
+    ctx.strokeStyle = "#7f97b3";
+    ctx.lineWidth = 4.5;
+    ctx.lineCap = "round";
+    ctx.globalAlpha = 0.85;
+    ctx.beginPath();
+    dockScene.backbone.forEach((point, index) => {
+      const r = rot(point.p);
+      if (index === 0 || point.gap) ctx.moveTo(px(r), py(r));
+      else ctx.lineTo(px(r), py(r));
+    });
+    ctx.stroke();
+    ctx.globalAlpha = 1;
+  }
+
+  // side chains of the interacting residues
+  if (dockScene.sticks) {
+    ctx.strokeStyle = "rgba(61,220,151,0.78)";
+    ctx.lineWidth = 2.2;
+    dockScene.sticks.forEach((stick) => {
+      const a = rot(stick.a), b = rot(stick.b);
+      ctx.beginPath(); ctx.moveTo(px(a), py(a)); ctx.lineTo(px(b), py(b)); ctx.stroke();
+    });
+  }
+
   projected.sort((a, b) => a.r[2] - b.r[2]).forEach(({ kind, atom, r }) => {
     const fade = 0.3 + 0.65 * ((r[2] - low) / (high - low || 1));
     ctx.beginPath();
     if (kind === "protein") {
       ctx.fillStyle = atom.kind === "interacting"
-        ? `rgba(61,220,151,${fade})` : `rgba(120,160,200,${fade * 0.55})`;
-      ctx.arc(px(r), py(r), atom.kind === "interacting" ? 3 : 2.1, 0, 6.2832);
+        ? `rgba(61,220,151,${fade})` : `rgba(120,160,200,${fade * 0.5})`;
+      ctx.arc(px(r), py(r), atom.kind === "interacting" ? 3.2 : 2.2, 0, 6.2832);
     } else {
-      ctx.fillStyle = "#f5d76e";
-      ctx.arc(px(r), py(r), 4, 0, 6.2832);
+      ctx.fillStyle = "#ffd479";
+      ctx.arc(px(r), py(r), 4.6, 0, 6.2832);
     }
     ctx.fill();
   });
 
-  ctx.strokeStyle = "#f5d76e";
-  ctx.lineWidth = 2.4;
+  ctx.strokeStyle = "#ffb454";
+  ctx.lineWidth = 4.2;
   ctx.lineCap = "round";
   dockScene.bonds.forEach(([i, j]) => {
     const a = rot([dockScene.ligand[i].x, dockScene.ligand[i].y, dockScene.ligand[i].z]);
@@ -719,8 +745,15 @@ function drawPose() {
     ctx.fillText(label.text, px(r) + 6, py(r) - 4);
   });
 
-  ctx.fillStyle = "#5f7f9e";
+  const legend = [["#ffb454", "ligand (docked pose)"], ["#3ddc97", "interacting residues"],
+                  ["#7f97b3", "protein backbone"], ["#ff8fa3", "hydrogen bonds"]];
   ctx.font = "11px ui-monospace, monospace";
+  legend.forEach(([colour, text], index) => {
+    const y = 20 + index * 18;
+    ctx.fillStyle = colour; ctx.fillRect(14, y - 8, 10, 10);
+    ctx.fillStyle = "#9db2c9"; ctx.fillText(text, 30, y);
+  });
+  ctx.fillStyle = "#5f7f9e";
   ctx.fillText(`protein ${dockScene.counts.protein_atoms} · ligand ${dockScene.counts.ligand_atoms}`
     + ` · ${dockScene.counts.hbonds} H-bonds`, 14, H - 12);
 }
@@ -730,6 +763,13 @@ async function loadDocking() {
   if (current && current.scene) {
     renderDocking(current, `${current.target} · this compound`);
     return;
+  }
+  const skipped = ((window.lastReport && window.lastReport.trace) || [])
+    .filter((step) => step.agent === "analysis_agent"
+      && /docking/i.test(step.message)).pop();
+  if (skipped && window.lastReport) {
+    $("dock-interactions").innerHTML =
+      `<div class="empty">This compound was not docked — ${skipped.message}</div>`;
   }
   try {
     const response = await fetch("/docking");
@@ -753,11 +793,12 @@ async function loadDocking() {
       <div class="kpi" style="margin-bottom:10px"><div class="box">
         <div class="label">best pose</div>
         <div class="value">${data.poses[0][0]} kcal/mol</div>
-        <div class="hint">AutoDock Vina, ${data.exhaustiveness} exhaustiveness</div></div></div>
+        <div class="hint">AutoDock Vina${data.exhaustiveness ? `, exhaustiveness ${data.exhaustiveness}` : ""}</div></div></div>
+      ${data.crystal_pose_score != null ? `
       <div class="kpi" style="margin-bottom:10px"><div class="box">
         <div class="label">crystal pose</div>
         <div class="value">${data.crystal_pose_score} kcal/mol</div>
-        <div class="hint">redocking ${data.redocking_rmsd} Å RMSD</div></div></div>
+        <div class="hint">redocking ${data.redocking_rmsd ?? "—"} Å RMSD</div></div></div>` : ""}
       <div class="kpi"><div class="box">
         <div class="label">binding site</div>
         <div class="value" style="font-size:17px">${data.own_analysis.residues.length} residues</div>

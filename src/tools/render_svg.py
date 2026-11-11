@@ -45,16 +45,36 @@ def render(scene: dict, width: int = 860, height: int = 620,
              f'style="background:#0a1420;border-radius:10px">',
              f'<rect width="{width}" height="{height}" fill="#0a1420"/>']
 
+    # --- protein backbone: a continuous trace through C-alpha atoms
+    backbone = scene.get("backbone") or []
+    if backbone:
+        path_parts = []
+        for index, point in enumerate(backbone):
+            px, py = project(_rotate((point["p"][0] - centre[0], point["p"][1] - centre[1],
+                                      point["p"][2] - centre[2]), yaw, pitch))
+            path_parts.append(f'{"M" if index == 0 or point["gap"] else "L"}{px:.1f} {py:.1f}')
+        parts.append(f'<path d="{" ".join(path_parts)}" fill="none" stroke="#7f97b3" '
+                     f'stroke-width="4.5" stroke-linecap="round" opacity="0.85"/>')
+
+    # --- side chains of the interacting residues, so the pocket is visible
+    for stick in scene.get("sticks") or []:
+        a = project(_rotate((stick["a"][0] - centre[0], stick["a"][1] - centre[1],
+                             stick["a"][2] - centre[2]), yaw, pitch))
+        b = project(_rotate((stick["b"][0] - centre[0], stick["b"][1] - centre[1],
+                             stick["b"][2] - centre[2]), yaw, pitch))
+        parts.append(f'<line x1="{a[0]:.1f}" y1="{a[1]:.1f}" x2="{b[0]:.1f}" y2="{b[1]:.1f}" '
+                     f'stroke="#3ddc97" stroke-width="2.2" stroke-linecap="round" opacity="0.75"/>')
+
     for kind, atom, xyz in sorted(rotated, key=lambda item: item[2][2]):
         px, py = project(xyz)
         fade = 0.25 + 0.6 * ((xyz[2] - low) / (high - low or 1))
         if kind == "protein":
             colour = "#5f7f9e" if atom["kind"] == "protein" else "#3ddc97"
-            radius = 2.4 if atom["kind"] == "protein" else 3.2
-            opacity = fade * (0.70 if atom["kind"] == "protein" else 0.95)
+            radius = 2.2 if atom["kind"] == "protein" else 3.4
+            opacity = fade * (0.55 if atom["kind"] == "protein" else 1.0)
         else:
-            colour = ELEMENT_COLOURS.get(atom["e"], "#e8eef7")
-            radius = ELEMENT_RADII.get(atom["e"], 3.0) + 0.8
+            colour = ELEMENT_COLOURS.get(atom["e"], "#ffd479")
+            radius = ELEMENT_RADII.get(atom["e"], 3.0) + 1.4
             opacity = 1.0
         parts.append(f'<circle cx="{px:.1f}" cy="{py:.1f}" r="{radius:.1f}" '
                      f'fill="{colour}" opacity="{opacity:.2f}"/>')
@@ -66,7 +86,7 @@ def render(scene: dict, width: int = 860, height: int = 620,
         if i < len(ligand_xy) and j < len(ligand_xy):
             (x1, y1), (x2, y2) = ligand_xy[i], ligand_xy[j]
             parts.append(f'<line x1="{x1:.1f}" y1="{y1:.1f}" x2="{x2:.1f}" y2="{y2:.1f}" '
-                         f'stroke="#f5d76e" stroke-width="2.6" stroke-linecap="round"/>')
+                         f'stroke="#ffb454" stroke-width="4.2" stroke-linecap="round"/>')
 
     for bond in scene["hbonds"]:
         start = project(_rotate((bond["from"][0] - centre[0], bond["from"][1] - centre[1],
@@ -87,9 +107,16 @@ def render(scene: dict, width: int = 860, height: int = 620,
         parts.append(f'<text x="{px + 6:.1f}" y="{py - 5:.1f}" fill="#9fd8c0" '
                      f'font-family="monospace" font-size="11">{label["text"]}</text>')
 
-    parts.append(f'<text x="16" y="{height - 14}" fill="#5f7f9e" font-size="11" '
+    legend = [("#ffb454", "ligand (docked pose)"), ("#3ddc97", "interacting residues"),
+              ("#7f97b3", "protein backbone"), ("#ff8fa3", "hydrogen bonds")]
+    for index, (colour, text) in enumerate(legend):
+        y = 22 + index * 18
+        parts.append(f'<rect x="16" y="{y - 9}" width="10" height="10" rx="2" fill="{colour}"/>'
+                     f'<text x="32" y="{y}" fill="#9db2c9" font-size="11" '
+                     f'font-family="monospace">{text}</text>')
+    parts.append(f'<text x="16" y="{height - 12}" fill="#5f7f9e" font-size="11" '
                  f'font-family="monospace">protein {scene["counts"]["protein_atoms"]} atoms · '
                  f'ligand {scene["counts"]["ligand_atoms"]} · '
-                 f'{scene["counts"]["hbonds"]} H-bonds (dashed)</text>')
+                 f'{scene["counts"]["hbonds"]} H-bonds · pose 1 of 9</text>')
     parts.append("</svg>")
     return "".join(parts)

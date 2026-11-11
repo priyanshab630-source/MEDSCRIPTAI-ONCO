@@ -38,10 +38,26 @@ def kpi(label: str, value: str, hint: str = "", size: str = "") -> str:
             f'<div class="hint">{hint}</div></div></div>')
 
 
-def build_html() -> str:
+def build_html(drug: str = None, target: str = None, smiles: str = None) -> str:
     client = TestClient(app)
-    docking = client.get("/docking").json()
-    geometry = client.get("/docking/scene").json()
+    if drug and target:
+        # screenshot a real per-compound run rather than the shipped sample
+        report = client.post("/analyze", json={"drug": drug, "target": target,
+                                               "disease": "", "smiles": smiles or ""}).json()
+        docking = report.get("docking") or {}
+        if not docking.get("scene"):
+            raise SystemExit(f"{drug} -> {target} produced no docked pose: "
+                             f"{docking.get('reason', 'see the analysis trace')}")
+        docking = {**docking, "poses": docking.get("poses", [[docking.get("best_affinity")]]),
+                   "crystal_pose_score": None, "redocking_rmsd": None,
+                   "own_analysis": docking.get("own_analysis", {}),
+                   "plip": docking.get("plip", {})}
+        geometry = docking["scene"]
+        label = f"{drug} → {target}"
+    else:
+        docking = client.get("/docking").json()
+        geometry = client.get("/docking/scene").json()
+        label = "4AJL sample"
     svg = render_svg.render(geometry, width=900, height=560)
 
     plip = (docking.get("plip") or {}).get("counts", {})
@@ -84,14 +100,17 @@ color:var(--muted)}} .tab.on{{background:rgba(77,163,255,.14);border-color:#2f5d
   <div class="card">
     <div class="row"><h3 style="margin:0">Docked pose</h3><div class="spacer"></div>
       <span class="tag">{docking.get('engine')}</span>
-      <span class="tag">redocking {docking.get('redocking_rmsd')} Å</span></div>
+      {f'<span class="tag">redocking {docking["redocking_rmsd"]} Å</span>'
+        if docking.get("redocking_rmsd") is not None else '<span class="tag">per-compound run</span>'}</div>
     <div style="display:flex;gap:18px;align-items:flex-start;margin-top:14px">
       <div style="flex:1.6;min-width:0">{svg}</div>
       <div style="flex:1;min-width:0">
         {kpi("best pose", f"{docking['poses'][0][0]} kcal/mol",
-             f"AutoDock Vina, {docking.get('exhaustiveness')} exhaustiveness")}
-        {kpi("crystal pose", f"{docking.get('crystal_pose_score')} kcal/mol",
-             f"redocking {docking.get('redocking_rmsd')} Å RMSD")}
+             "AutoDock Vina" + (f", exhaustiveness {docking['exhaustiveness']}"
+                                if docking.get("exhaustiveness") else ""))}
+        {kpi("crystal pose", f"{docking['crystal_pose_score']} kcal/mol",
+             f"redocking {docking['redocking_rmsd']} Å RMSD")
+         if docking.get("crystal_pose_score") is not None else ""}
         {kpi("binding site", f"{len(docking['own_analysis']['residues'])} residues",
              "within 5 Å of the ligand", size="17px")}
         <div class="note" style="margin-top:10px">drag to rotate · scroll to zoom ·
@@ -117,11 +136,14 @@ def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description="Screenshot the Docking tab")
     parser.add_argument("--out", default="docs/screenshots/docking-tab.png")
     parser.add_argument("--width", type=int, default=1440)
+    parser.add_argument("--drug", help="screenshot this compound instead of the sample")
+    parser.add_argument("--target", help="its target (must have a receptor)")
+    parser.add_argument("--smiles", help="optional SMILES override")
     args = parser.parse_args(argv)
 
     html_path = Path(args.out).with_suffix(".html")
     html_path.parent.mkdir(parents=True, exist_ok=True)
-    html_path.write_text(build_html(), encoding="utf-8")
+    html_path.write_text(build_html(args.drug, args.target, args.smiles), encoding="utf-8")
 
     subprocess.run(["wkhtmltoimage", "--width", str(args.width), "--quality", "92",
                     str(html_path), str(args.out)], check=True,

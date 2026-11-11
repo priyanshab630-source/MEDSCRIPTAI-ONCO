@@ -115,8 +115,13 @@ the Analysis agent checks `data/receptors/` for a structure of that target:
 
 * **structure present** → it docks *that compound* with AutoDock Vina, keeps the best
   pose, runs both interaction analysers and attaches the scene to the report;
-* **no structure** → it says so in the trace and falls back to the conformer/MMFF
-  surrogate score, which is what SHP2, KRAS_G12C and EGFR use today.
+* **anything missing** → it says *which* thing is missing and falls back to the
+  conformer surrogate. `docking_run.availability(target)` returns one of four reasons:
+  docking disabled, no structure for the target, Vina not installed, Meeko not installed.
+  The analysis trace carries that sentence, and the dashboard shows it in the Docking tab.
+
+If docking seems to "work for one compound and not another", check `GET /health` and the
+analysis trace — the usual cause is a missing `vina`/`meeko` install, not the compound.
 
 Adding a target is two files:
 

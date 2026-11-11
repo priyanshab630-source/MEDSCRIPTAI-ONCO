@@ -56,7 +56,8 @@ def run(state):
     # If the target has a real structure, dock this compound into it and let the
     # measured pose replace the surrogate score in the computation list.
     detail = {}
-    if smiles and docking_run.available(hypothesis.target):
+    dock_status = docking_run.availability(hypothesis.target) if smiles else {"ok": False}
+    if smiles and dock_status["ok"]:
         try:
             detail = docking_run.dock_compound(smiles, hypothesis.target)
             state["docking_detail"] = detail
@@ -67,7 +68,7 @@ def run(state):
             log(state, "analysis_agent", f"real docking failed: {type(exc).__name__}: {exc}")
     elif smiles:
         log(state, "analysis_agent",
-            f"no receptor for {hypothesis.target}: using the conformer surrogate")
+            f"real docking skipped - {dock_status['reason']}; using the conformer surrogate")
     computations.append(ComputeResult(
         name="Docking",
         score=dock["score01"],
