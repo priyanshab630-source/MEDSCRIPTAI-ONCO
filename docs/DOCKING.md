@@ -122,6 +122,12 @@ the Analysis agent checks `data/receptors/` for a structure of that target:
 
 If docking seems to "work for one compound and not another", check `GET /health` and the
 analysis trace — the usual cause is a missing `vina`/`meeko` install, not the compound.
+`GET /health` now returns `docking_targets`: each registered target with `ready` and a
+`reason`.
+
+The dashboard will **not** show the shipped sample as if it were your result. When a
+hypothesis produces no pose, the Docking tab states the reason and offers the sample
+behind a button labelled as a sample.
 
 Adding a target is two files:
 

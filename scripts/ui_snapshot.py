@@ -68,11 +68,11 @@ def build_html(drug: str = None, target: str = None, smiles: str = None) -> str:
                 f"<td class='mono'>{right}</td></tr>")
 
     table = "".join([
-        row("hydrogen bonds", plip.get("hydrogen_bonds", 0), own.get("hydrogen_bonds", 0)),
-        row("hydrophobic", plip.get("hydrophobic_contacts", 0), own.get("hydrophobic_contacts", 0)),
-        row("salt bridges", plip.get("salt_bridges", 0), own.get("salt_bridges", 0)),
-        row("pi-stacks", plip.get("pi_stacks", 0), own.get("pi_stacks", 0)),
-        row("binding-site residues", plip.get("binding_site_residues", 0),
+        row("hydrogen bonds", plip.get("hydrogen_bonds", "—"), own.get("hydrogen_bonds", 0)),
+        row("hydrophobic", plip.get("hydrophobic_contacts", "—"), own.get("hydrophobic_contacts", 0)),
+        row("salt bridges", plip.get("salt_bridges", "—"), own.get("salt_bridges", 0)),
+        row("pi-stacks", plip.get("pi_stacks", "—"), own.get("pi_stacks", 0)),
+        row("binding-site residues", plip.get("binding_site_residues", "—"),
             own.get("binding_site_residues", 0)),
     ])
 
@@ -111,6 +111,8 @@ color:var(--muted)}} .tab.on{{background:rgba(77,163,255,.14);border-color:#2f5d
         {kpi("crystal pose", f"{docking['crystal_pose_score']} kcal/mol",
              f"redocking {docking['redocking_rmsd']} Å RMSD")
          if docking.get("crystal_pose_score") is not None else ""}
+        {kpi("hydrogen bonds", str(own.get("hydrogen_bonds", 0)),
+             "PLIP: " + str(plip.get("hydrogen_bonds")) if plip else "PLIP not installed")}
         {kpi("binding site", f"{len(docking['own_analysis']['residues'])} residues",
              "within 5 Å of the ligand", size="17px")}
         <div class="note" style="margin-top:10px">drag to rotate · scroll to zoom ·

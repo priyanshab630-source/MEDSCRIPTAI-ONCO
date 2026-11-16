@@ -83,6 +83,18 @@ def _resolve_smiles(request: HypothesisRequest) -> str:
 
 
 # ---------------------------------------------------------------------- routes
+def _docking_targets() -> list:
+    """Per-target: can this target be docked right now, and if not, why not."""
+    from src.tools import docking_run, receptors
+
+    out = []
+    for entry in receptors.registry():
+        status = docking_run.availability(entry["target"])
+        out.append({"target": entry["target"], "ready": status["ok"],
+                    "reason": status["reason"]})
+    return out
+
+
 def _build_id() -> str:
     """Short git sha, so a stale server is obvious instead of mysterious."""
     try:
@@ -103,6 +115,7 @@ def health():
         "agents": 6,
         "build": _build_id(),
         "docking_run": (config.ROOT / "runs" / "4ajl" / "report.json").exists(),
+        "docking_targets": _docking_targets(),
         "routes": sorted(route.path for route in app.routes
                          if getattr(route, "path", "").startswith("/docking")),
         "llm": "sarvam" if llm.available() else "rule-based fallback",

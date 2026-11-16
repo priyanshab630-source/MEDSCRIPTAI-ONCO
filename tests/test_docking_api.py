@@ -34,6 +34,35 @@ def test_scene_has_ligand_bonds_and_hbonds():
     assert len(geometry["ligand"]) == geometry["counts"]["ligand_atoms"]
 
 
+def test_health_lists_each_target_and_why_it_cannot_dock():
+    body = client.get("/health").json()
+    assert "docking_targets" in body
+    for entry in body["docking_targets"]:
+        assert entry["target"]
+        assert isinstance(entry["ready"], bool)
+        assert entry["reason"]
+        if not entry["ready"]:
+            assert entry["reason"] != "ready"
+
+
+def test_analysis_attaches_the_pose_or_says_why_not():
+    """Either the report carries a pose, or the trace explains the skip."""
+    import os
+
+    if os.getenv("DOCKING_ENABLED") in ("0", "false", "no"):
+        pytest.skip("docking disabled in this test run")
+    body = client.post("/analyze", json={"drug": "SHP099", "target": "SHP2",
+                                         "disease": ""}).json()
+    docking = body.get("docking") or {}
+    messages = [step["message"] for step in body["trace"]
+                if step["agent"] == "analysis_agent"]
+    if docking.get("scene"):
+        assert docking["best_affinity"] < 0
+        assert docking["scene"]["counts"]["protein_atoms"] > 100
+    else:
+        assert any("docking" in message.lower() for message in messages)
+
+
 def test_printable_view_renders_svg():
     response = client.get("/docking/view")
     if response.status_code == 404:

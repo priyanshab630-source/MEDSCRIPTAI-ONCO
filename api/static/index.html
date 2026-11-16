@@ -759,18 +759,45 @@ function drawPose() {
 }
 
 async function loadDocking() {
-  const current = (window.lastReport && window.lastReport.docking) || null;
+  const report = window.lastReport || null;
+  const current = (report && report.docking) || null;
+
+  // The compound in hand was docked: show its own pose.
   if (current && current.scene) {
     renderDocking(current, `${current.target} · this compound`);
     return;
   }
-  const skipped = ((window.lastReport && window.lastReport.trace) || [])
-    .filter((step) => step.agent === "analysis_agent"
-      && /docking/i.test(step.message)).pop();
-  if (skipped && window.lastReport) {
-    $("dock-interactions").innerHTML =
-      `<div class="empty">This compound was not docked — ${skipped.message}</div>`;
+
+  // A hypothesis was analysed but produced no pose. Say exactly why, and do NOT
+  // silently show the shipped sample as if it were this compound's result.
+  if (report) {
+    const step = (report.trace || [])
+      .filter((entry) => entry.agent === "analysis_agent" && /docking/i.test(entry.message))
+      .pop();
+    const reason = (step && step.message) || "no docking step ran for this hypothesis";
+    $("dock-engine").textContent = "not docked";
+    $("dock-rmsd").textContent = report.hypothesis ? report.hypothesis.target : "";
+    $("dock-kpis").innerHTML = "";
+    $("dock-interactions").innerHTML = `
+      <div class="empty">
+        <p><strong>This compound was not docked.</strong></p>
+        <p class="mono" style="font-size:13px">${reason}</p>
+        <p class="note" style="margin-top:10px">Docking needs three things: a structure in
+          <span class="mono">data/receptors/</span> for this target, and the
+          <span class="mono">vina</span> + <span class="mono">meeko</span> packages
+          installed. <span class="mono">GET /health</span> lists which targets are ready.</p>
+        <button class="btn ghost" id="dock-show-sample" style="margin-top:10px">
+          Show the shipped 4AJL sample instead</button>
+      </div>`;
+    const button = $("dock-show-sample");
+    if (button) button.addEventListener("click", () => { window.lastReport = null; loadDocking(); });
+    dockScene = null;
+    const canvas = $("pose-canvas");
+    if (canvas) canvas.getContext("2d").clearRect(0, 0, canvas.width, canvas.height);
+    return;
   }
+
+  // Nothing analysed yet in this session: the sample run is the sensible default.
   try {
     const response = await fetch("/docking");
     if (response.status === 404) {
@@ -786,43 +813,7 @@ async function loadDocking() {
         `<div class="empty">${data.hint || "no docking run yet"}</div>`;
       return;
     }
-    $("dock-engine").textContent = data.engine || "AutoDock Vina";
-    $("dock-rmsd").textContent = data.redocking_rmsd !== null
-      ? `redocking ${data.redocking_rmsd} Å` : "no redocking check";
-    $("dock-kpis").innerHTML = `
-      <div class="kpi" style="margin-bottom:10px"><div class="box">
-        <div class="label">best pose</div>
-        <div class="value">${data.poses[0][0]} kcal/mol</div>
-        <div class="hint">AutoDock Vina${data.exhaustiveness ? `, exhaustiveness ${data.exhaustiveness}` : ""}</div></div></div>
-      ${data.crystal_pose_score != null ? `
-      <div class="kpi" style="margin-bottom:10px"><div class="box">
-        <div class="label">crystal pose</div>
-        <div class="value">${data.crystal_pose_score} kcal/mol</div>
-        <div class="hint">redocking ${data.redocking_rmsd ?? "—"} Å RMSD</div></div></div>` : ""}
-      <div class="kpi"><div class="box">
-        <div class="label">binding site</div>
-        <div class="value" style="font-size:17px">${data.own_analysis.residues.length} residues</div>
-        <div class="hint">within 5 Å of the ligand</div></div></div>`;
-
-    const plip = data.plip || {};
-    const pc = plip.counts || {}, oc = data.own_analysis.counts || {};
-    const row = (label, a, b) => `<tr><td>${label}</td><td class="mono">${a}</td>
-      <td class="mono">${b}</td></tr>`;
-    $("dock-interactions").innerHTML = `
-      <table style="margin-bottom:12px">
-        <tr><th>interaction</th><th>PLIP</th><th>built-in</th></tr>
-        ${row("hydrogen bonds", pc.hydrogen_bonds ?? 0, oc.hydrogen_bonds ?? 0)}
-        ${row("hydrophobic", pc.hydrophobic_contacts ?? 0, oc.hydrophobic_contacts ?? 0)}
-        ${row("salt bridges", pc.salt_bridges ?? 0, oc.salt_bridges ?? 0)}
-        ${row("pi-stacks", pc.pi_stacks ?? 0, oc.pi_stacks ?? 0)}
-        ${row("binding-site residues", pc.binding_site_residues ?? 0, oc.binding_site_residues ?? 0)}
-      </table>
-      <div class="note">PLIP applies angle-aware criteria; the built-in analyser uses plain
-        heavy-atom cutoffs, so it reports more contacts. Both are shown.</div>
-      <div class="note" style="margin-top:8px">Residues:
-        ${(data.own_analysis.residues || []).slice(0, 14).join(", ")}</div>`;
-
-    dockScene = await api("/docking/scene");
+    const scene = await api("/docking/scene");
     renderDocking({
       target: "4AJL sample",
       engine: data.engine,
@@ -830,79 +821,14 @@ async function loadDocking() {
       poses: data.poses,
       own_analysis: data.own_analysis,
       plip: data.plip,
-      scene: dockScene,
-      note: "sample run shipped with the repo — analyse a compound against a target " +
-            "that has a structure (DEMO_4AJL) to see its own pose here",
-    }, "4AJL sample");
+      scene: scene,
+      note: "SAMPLE RUN shipped with the repo (PDBbind 4AJL) — not the compound you "
+        + "analysed. Analyse a compound against a target that has a structure "
+        + "(SHP2 or DEMO_4AJL) to see its own pose here.",
+    }, "4AJL sample · not your compound");
   } catch (error) {
     $("dock-interactions").innerHTML = `<div class="empty neg">${error.message}</div>`;
   }
-}
-
-function renderDocking(docking, subtitle) {
-  const own = (docking.own_analysis || {}).counts || {};
-  const plip = (docking.plip || {}).counts || {};
-  $("dock-engine").textContent = docking.engine || "AutoDock Vina";
-  $("dock-rmsd").textContent = subtitle || docking.target || "";
-  $("dock-kpis").innerHTML = `
-    <div class="kpi" style="margin-bottom:10px"><div class="box">
-      <div class="label">best pose</div>
-      <div class="value">${docking.best_affinity} kcal/mol</div>
-      <div class="hint">${(docking.poses || []).length} poses kept</div></div></div>
-    <div class="kpi" style="margin-bottom:10px"><div class="box">
-      <div class="label">hydrogen bonds</div>
-      <div class="value">${own.hydrogen_bonds ?? 0}</div>
-      <div class="hint">PLIP: ${plip.hydrogen_bonds ?? "n/a"}</div></div></div>
-    <div class="kpi"><div class="box">
-      <div class="label">binding site</div>
-      <div class="value" style="font-size:17px">${own.binding_site_residues ?? 0} residues</div>
-      <div class="hint">PLIP: ${plip.binding_site_residues ?? "n/a"}</div></div></div>`;
-
-  const row = (label, a, b) => `<tr><td>${label}</td><td class="mono">${a}</td>
-    <td class="mono">${b}</td></tr>`;
-  $("dock-interactions").innerHTML = `
-    <table style="margin-bottom:12px">
-      <tr><th>interaction</th><th>PLIP</th><th>built-in</th></tr>
-      ${row("hydrogen bonds", plip.hydrogen_bonds ?? "—", own.hydrogen_bonds ?? 0)}
-      ${row("hydrophobic", plip.hydrophobic_contacts ?? "—", own.hydrophobic_contacts ?? 0)}
-      ${row("salt bridges", plip.salt_bridges ?? "—", own.salt_bridges ?? 0)}
-      ${row("pi-stacks", plip.pi_stacks ?? "—", own.pi_stacks ?? 0)}
-      ${row("binding-site residues", plip.binding_site_residues ?? "—",
-            own.binding_site_residues ?? 0)}
-    </table>
-    ${docking.note ? `<div class="note">${docking.note}</div>` : ""}
-    <div class="note" style="margin-top:8px">Residues:
-      ${((docking.own_analysis || {}).residues || []).slice(0, 14).join(", ")}</div>`;
-
-  dockScene = docking.scene;
-  dockAngle = -0.55; dockPitch = 0.32; dockZoom = 1;
-  drawPose();
-}
-
-function bindPoseCanvas() {
-  const canvas = $("pose-canvas");
-  if (!canvas) return;
-  let dragging = false, lastX = 0, lastY = 0;
-  canvas.addEventListener("mousedown", (event) => {
-    dragging = true; lastX = event.clientX; lastY = event.clientY;
-    canvas.style.cursor = "grabbing";
-  });
-  window.addEventListener("mouseup", () => { dragging = false; canvas.style.cursor = "grab"; });
-  window.addEventListener("mousemove", (event) => {
-    if (!dragging) return;
-    dockAngle += (event.clientX - lastX) * 0.008;
-    dockPitch += (event.clientY - lastY) * 0.008;
-    lastX = event.clientX; lastY = event.clientY;
-    drawPose();
-  });
-  canvas.addEventListener("wheel", (event) => {
-    event.preventDefault();
-    dockZoom = Math.max(0.4, Math.min(3, dockZoom * (event.deltaY > 0 ? 0.92 : 1.08)));
-    drawPose();
-  }, { passive: false });
-  $("dock-reset").addEventListener("click", () => {
-    dockAngle = -0.55; dockPitch = 0.32; dockZoom = 1; drawPose();
-  });
 }
 
 async function loadDatasets() {
