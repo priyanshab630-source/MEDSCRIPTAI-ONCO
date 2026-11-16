@@ -1,0 +1,13 @@
+{
+  "center": [
+    -49.76,
+    -0.1,
+    -20.81
+  ],
+  "size": [
+    22.0,
+    22.0,
+    22.0
+  ],
+  "source": "centroid of 2ito_ligand.mol2; structure 2ito_protein.pdb"
+}
