@@ -758,6 +758,84 @@ function drawPose() {
     + ` · ${dockScene.counts.hbonds} H-bonds`, 14, H - 12);
 }
 
+function renderDocking(docking, subtitle) {
+  const own = (docking.own_analysis || {}).counts || {};
+  const plip = (docking.plip || {}).counts || {};
+  const hasPlip = Object.keys(plip).length > 0;
+  const orDash = (value) => (value === undefined || value === null ? "—" : value);
+
+  $("dock-engine").textContent = docking.engine || "AutoDock Vina";
+  $("dock-rmsd").textContent = subtitle || docking.target || "";
+
+  const poseCards = [
+    `<div class="kpi" style="margin-bottom:10px"><div class="box">
+       <div class="label">best pose</div>
+       <div class="value">${orDash(docking.best_affinity)} kcal/mol</div>
+       <div class="hint">${(docking.poses || []).length} poses kept</div></div></div>`,
+    `<div class="kpi" style="margin-bottom:10px"><div class="box">
+       <div class="label">hydrogen bonds</div>
+       <div class="value">${orDash(own.hydrogen_bonds)}</div>
+       <div class="hint">${hasPlip ? `PLIP: ${orDash(plip.hydrogen_bonds)}`
+                                   : "PLIP not installed"}</div></div></div>`,
+    `<div class="kpi"><div class="box">
+       <div class="label">binding site</div>
+       <div class="value" style="font-size:17px">${orDash(own.binding_site_residues)} residues</div>
+       <div class="hint">${hasPlip ? `PLIP: ${orDash(plip.binding_site_residues)}`
+                                   : "PLIP not installed"}</div></div></div>`,
+  ];
+  $("dock-kpis").innerHTML = poseCards.join("");
+
+  const row = (label, a, b) => `<tr><td>${label}</td><td class="mono">${a}</td>
+    <td class="mono">${b}</td></tr>`;
+  $("dock-interactions").innerHTML = `
+    <table style="margin-bottom:12px">
+      <tr><th>interaction</th><th>PLIP</th><th>built-in</th></tr>
+      ${row("hydrogen bonds", orDash(plip.hydrogen_bonds), orDash(own.hydrogen_bonds))}
+      ${row("hydrophobic", orDash(plip.hydrophobic_contacts), orDash(own.hydrophobic_contacts))}
+      ${row("salt bridges", orDash(plip.salt_bridges), orDash(own.salt_bridges))}
+      ${row("pi-stacks", orDash(plip.pi_stacks), orDash(own.pi_stacks))}
+      ${row("binding-site residues", orDash(plip.binding_site_residues),
+            orDash(own.binding_site_residues))}
+    </table>
+    ${hasPlip ? "" : `<div class="note neg">PLIP did not run for this pose — the numbers
+      in that column are unknown, not zero.</div>`}
+    ${docking.note ? `<div class="note">${docking.note}</div>` : ""}
+    <div class="note" style="margin-top:8px">Residues:
+      ${((docking.own_analysis || {}).residues || []).slice(0, 14).join(", ") || "—"}</div>`;
+
+  dockScene = docking.scene || null;
+  dockAngle = -0.55; dockPitch = 0.32; dockZoom = 1;
+  if (dockScene) drawPose();
+}
+
+function bindPoseCanvas() {
+  const canvas = $("pose-canvas");
+  if (!canvas || canvas.dataset.bound === "1") return;   // bind once
+  canvas.dataset.bound = "1";
+  let dragging = false, lastX = 0, lastY = 0;
+  canvas.addEventListener("mousedown", (event) => {
+    dragging = true; lastX = event.clientX; lastY = event.clientY;
+    canvas.style.cursor = "grabbing";
+  });
+  window.addEventListener("mouseup", () => { dragging = false; canvas.style.cursor = "grab"; });
+  window.addEventListener("mousemove", (event) => {
+    if (!dragging) return;
+    dockAngle += (event.clientX - lastX) * 0.008;
+    dockPitch += (event.clientY - lastY) * 0.008;
+    lastX = event.clientX; lastY = event.clientY;
+    drawPose();
+  });
+  canvas.addEventListener("wheel", (event) => {
+    event.preventDefault();
+    dockZoom = Math.max(0.4, Math.min(3, dockZoom * (event.deltaY > 0 ? 0.92 : 1.08)));
+    drawPose();
+  }, { passive: false });
+  const reset = $("dock-reset");
+  if (reset) reset.addEventListener("click", () => {
+    dockAngle = -0.55; dockPitch = 0.32; dockZoom = 1; drawPose();
+  });
+}
+
 async function loadDocking() {
   const report = window.lastReport || null;
   const current = (report && report.docking) || null;
@@ -979,7 +1057,15 @@ function selectTab(name) {
   });
   if (name === "calibration" && $("cal-body").querySelector(".empty")) loadCalibration();
   if (name === "datasets" && $("datasets-body").querySelector(".empty")) loadDatasets();
-  if (name === "docking") { bindPoseCanvas(); if (!dockScene) loadDocking(); }
+  if (name === "docking") {
+    try {
+      bindPoseCanvas();
+      loadDocking();
+    } catch (error) {
+      $("dock-interactions").innerHTML =
+        `<div class="empty neg">docking tab failed: ${error.message}</div>`;
+    }
+  }
   if (name === "models" && $("models-body").querySelector(".empty")) loadModels();
 }
 
